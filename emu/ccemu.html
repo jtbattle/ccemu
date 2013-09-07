@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<title>JavaScript Compucolor II Emulator</title>
+
+<head>
+<meta charset="utf-8">
+<link rel="stylesheet" type="text/css" href="css/ccemu.css" />
+</head>
+<body>
+<div id="world">
+
+<h1>Compucolor II Emulator</h1>
+
+<div id="controls">
+
+      <p><button id="hardreset" class="but1">Hard Reset</button></p>
+      <p><button id="warmreset" class="but1">Warm Reset</button></p>
+      <p><button id="auto" class="but1">Auto</button></p>
+
+      <p>Run a program:</p>
+      <p><input type='file' id='fileinput'></p>
+
+      <select id="filesel">
+      </select>
+
+      <p>Screen size:</p>
+      <select id="ssizesel">
+          <option value="1.00" selected>1.00 x
+          <option value="1.25">1.25 x
+          <option value="1.33">1.33 x
+          <option value="1.50">1.50 x
+          <option value="1.75">1.75 x
+          <option value="2.00">2.00 x
+      </select>
+
+      <p>Virtual keyboard:</p>
+      <input type="radio" id="vkNone"   name="vkSize" value="None" checked="checked">None
+      <input type="radio" id="vkSmall"  name="vkSize" value="S">S
+      <input type="radio" id="vkMedium" name="vkSize" value="M">M
+      <input type="radio" id="vkLarge"  name="vkSize" value="L">L
+
+      <p><a href="help.html" target="_blank">Help</a></p>
+      <p><a href="about.html" target="_blank">About</a></p>
+</div>
+
+<div id="screen">
+    <canvas id="canv">Your browser don't support the HTML5 canvas element,
+                      so the emulator can't run at all. Sorry.</canvas>
+    <div id="drives">
+      <div id="drivegroup0">
+	  <p id="drive0"><span id="CD0">CD0:</span> <span id="CD0Label">--empty--</span></p>
+	  <input type='file' id='diskinput0'>
+	  <select id="disksel0"></select>
+      </div>
+      <div id="drivegroup1">
+	  <p id="drive1"><span id="CD1">CD1:</span> <span id="CD1Label">--empty--</span></p>
+	  <input type='file' id='diskinput1'>
+	  <select id="disksel1"></select>
+      </div>
+    </div>
+</div>
+
+<div id="virtualkeyboard">
+<table>
+    <tbody>
+        <tr>
+            <td><button id="black">[OUT]</button></td>
+            <td><button id="blue">[LOAD]</button></td>
+            <td>&nbsp;&nbsp;</td>
+            <td><button id="F0" class="fcn">F0<br />VECT<br />INC</button></td>
+            <td><button id="F1" class="fcn">F1<br />VECT<br />Y1</button></td>
+            <td><button id="F2" class="fcn">F2<br />VECT<br />X1</button></td>
+            <td><button id="F3" class="fcn">F3<br />Y BAR<br />INC</button></td>
+            <td><button id="F4" class="fcn">F4<br />Y BAR<br />YM</button></td>
+            <td><button id="F5" class="fcn">F5<br />Y BAR<br />X</button></td>
+            <td><button id="F6" class="fcn">F6<br />Y BAR<br />Y0</button></td>
+            <td><button id="F7" class="fcn">F7<br />X BAR<br />INC</button></td>
+            <td><button id="F8" class="fcn">F8<br />X BAR<br />XM</button></td>
+            <td><button id="F9" class="fcn">F9<br />X BAR<br />Y</button></td>
+            <td><button id="F10" class="fcn">F10<br />X BAR<br />X0</button></td>
+            <td><button id="F11" class="fcn">F11<br />POINT<br />INC</button></td>
+            <td><button id="F12" class="fcn">F12<br />POINT<br />Y</button></td>
+            <td><button id="F13" class="fcn">F13<br />POINT<br />X</button></td>
+            <td><button id="F14" class="fcn">F14<br />CHAR<br />PLOT</button></td>
+            <td><button id="F15" class="fcn">F15<br />PLOT<br />ESC</button></td>
+        </tr>
+        <tr>
+            <td><button id="red">[PUT]</button></td>
+            <td><button id="magenta">[POKE]</button></td>
+            <td>&nbsp;&nbsp;</td>
+            <td>&nbsp;&nbsp;</td>
+            <td>&nbsp;&nbsp;</td>
+            <td><button id="auto" class="norm">AUTO</button></td>
+            <td><button id="fgon" class="norm">FG ON<br />FLG&nbsp;OFF</button></td>
+            <td><button id="bgon" class="norm">BG ON<br />FLG&nbsp;ON</button></td>
+            <td><button id="blnkon" class="norm">BLINK ON</button></td>
+            <td><button id="bla7off" class="norm">BL/A7<br />OFF</button></td>
+            <td><button id="a7on" class="norm">A7<br />ON</button></td>
+            <td><button id="vis" class="norm">(VIS)<br />[</button></td>
+            <td><button id="upa" class="norm">^<br />\</button></td>
+            <td><button id="block" class="norm">(BLOCK)<br />]</button></td>
+            <td><button id="user" class="norm">(USER)<br />^</button></td>
+            <td><button id="crt" class="norm">(CRT)<br />_</button></td>
+        </tr>
+        <tr>
+            <td><button id="green">[PLOT]</button></td>
+            <td><button id="cyan">[PRNT]</button></td>
+            <td>&nbsp;&nbsp;</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td><button id="epage" class="rstrow">ERASE<br />PAGE</button></td>
+            <td><button id="eline" class="rstrow">ERASE<br />LINE</button></td>
+            <td></td>
+            <td><button id="cpurst" class="rstrow">CPU<br />RESET</button></td>
+        </tr>
+        <tr>
+            <td><button id="yellow">[SAVE]</button></td>
+            <td><button id="white">[LIST]</button></td>
+            <td>&nbsp;&nbsp;</td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td></td>
+            <td><button id="delchar" class="norm">DEL<br />CHAR</button></td>
+            <td><button id="inschar" class="norm">INS<br />CHAR</button></td>
+            <td><button id="delline" class="norm">DEL<br />LINE</button></td>
+            <td><button id="insline" class="norm">INS<br />LINE</button></td>
+        </tr>
+    </tbody>
+</table>
+</div>
+
+<button id="run_debug">Run</button>
+<button id="run1" class="debugger">Run 1</button>
+<button id="runn" class="debugger">Run n</button>
+<input  id="nval" class="debugger" type="text" value="1000">
+<p id="runnmsg"></p>
+
+<div class="debugger">
+    <br />
+    <table id="regtable">
+        <tr><th>af<th>bc<th>de<th>hl<th>pc<th>sp<th>flags
+        <tr><td><div id="af"><td><div id="bc"><td><div id="de"><td><div id="hl"><td><div id="pc"><td><div id="sp"><td><div id="flags"><td>
+    </table>
+    <pre id="disassemble"></pre>
+</div>
+
+<!--
+  vim:expandtab:sw=4
+  -->
+</div>
+<script type="text/javascript" src="js/jquery-1.9.1.js"></script>
+<script type="text/javascript" src="js/js8080.js"></script>
+<script type="text/javascript" src="js/crt.js"></script>
+<script type="text/javascript" src="js/keybrd.js"></script>
+<script type="text/javascript" src="js/floppy.js"></script>
+<script type="text/javascript" src="js/autotyper.js"></script>
+<script type="text/javascript" src="js/scheduler.js"></script>
+<script type="text/javascript" src="js/tms5501.js"></script>
+<script type="text/javascript" src="js/smc5027.js"></script>
+<script type="text/javascript" src="js/roms.js"></script>
+<script type="text/javascript" src="js/ccemu.js"></script>
+</body>

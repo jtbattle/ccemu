@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<title>About the JavaScript Compucolor II Emulator</title>
+
+<head>
+<link rel="stylesheet" type="text/css" href="ccemu.css" />
+<style>
+    body { background-color: #f4f4f4; }
+    div#wrapper { margin: 6px; max-width:45em; }
+    li { margin-bottom:1em; }
+    ul.changes li { margin-bottom:0; }
+    h1 { margin-bottom:0; }
+    .version { text-align:center; }
+</style>
+</head>
+<body>
+<div id="wrapper">
+
+<h1>About the Compucolor II Emulator</h1>
+<p class="version">Version 2013.04.21</p>
+
+<p>
+This emulator is written in javascript, and makes use of some fairly
+modern browser features, namely <tt>canvas</tt> support and the
+<tt>FileReader</tt> API.  If your browser doesn't support those features,
+the emulator may lose features or might not work at all.
+</p>
+
+<p>
+This emulator is my first javascript program, and it leans heavily on
+the work and encouragement of others.
+</p>
+
+<ul>
+    <li>First off, thanks are due to David Jeppeson, who got this all started
+        by giving me his old Compucolor.  I wanted one as the basis for
+        writing an emulator.  I'm embarrased to say that was back in 2002,
+        and it has taken me over a decade to make good on my intentions.
+    </li>
+    <li>The code to emulate the 8080 CPU was written by
+        <a href="http://www.bluishcoder.co.nz/">Chris Double</a>
+        for a
+        <a href="http://www.bluishcoder.co.nz/js8080/">space invaders</a>
+        emulator, and he graciously gave permission to use it.
+    </li>
+    <li>Stefan Tramm improved on Chris Double's 8080 code by fixing a
+        few bugs, then used it in his excellent
+        <a href="http://www.tramm.li/i8080/">8080 CPU Emulator</a>,
+        which emulates a running CP/M system right in your browser,
+        including a TTY and floppy disks.
+    </li>
+    <li>The snazzy animation to make the debugger window open up and
+        close, plus some behind the scenes logic to position elements
+        when the virtual CC-II CRT is resized was done via the popular
+        <a href="http://jquery.com/">jQuery</a> core library.
+    </li>
+    <li><a href="http://www.rit.edu/cla/philosophy/Suits.html">Dr. David B. Suits</a>
+        didn't realize it, but he lit a fire under me to finally make the
+        time to write this emulator.  I had spent nearly a decade with the
+        intention of writing an emulator for the CC-II, but it never made it
+        to the top of my priority list.  After contacting David about
+        permission to scan his book, he pointed me at
+        <a href="http://www.colandercombo.com/taxi/cc2.html">a more restricted javascript emulator</a>
+        for a machine closely related to the CC-II.
+        Although I didn't use any of that code, its shockingly small
+        size made me realize that perhaps it wasn't as big of a job as
+        I had feared; I began writing this emulator a couple days later.
+    </li>
+</ul>
+
+<h3>Version 2013.04.21</h3>
+
+<ul class="changes">
+    <li>added floppy disk emulation</li>
+    <li>sped up autotyping "download" feature</li>
+    <li>removed 8080 monitor to simplify the UI</li>
+    <li>unified the "Read File" button with the "Run a program:" pulldown</li>
+    <li>added mapping of Insert key to INSCHAR and Delete key to DELCHAR</li>
+    <li>refreshed the list of runnable programs</li>
+    <li>a number of small fixes and improvements</li>
+</ul>
+
+<h3>Version 2013.03.30</h3>
+
+<ul class="changes">
+    <li>First release</li>
+</ul>
+
+</div>
+</body>
+
+<!--
+  vim:expandtab:sw=4
+  -->

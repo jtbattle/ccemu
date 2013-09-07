@@ -1,0 +1,108 @@
+----- emulator changes list -----
+
+* reverted revealing prototype pattern; the ".call(this, ..." stuff was ugly
+
+* CPU accesses to the video RAM in the range of 0x6000 to 0x6FFF take priority
+  over video generation, but accesses in the range of 0x7000 to 0x7FFF give
+  CPU lower priority, meaning it can access that range only during horizontal
+  blanking.  Previously, this detail was ignored.
+
+* list other changes here so I don't forget
+
+----- emulator TODO list -----
+
+add support for 8.79:
+   -add a global bit indicating model number
+   -expose some UI way of setting model number
+        changing it forces a reset of the emu
+   -floppy.js
+        change the track stepping behavior based on model
+        change the track limit to be 82 instead of 41
+        have a function to map physTrack to logicalTrack
+            based on model.  6.78 -> 1:1, 8.79 -> /2
+        the 8.79 bios sets phase=1 before pounding 84 steps,
+            which means track 0 should end up being phase=1
+   ?on page 5.28 of the maintenance manual, the three stepper phase control
+    bits go through a 74LS138 to ensure only one phase is driven at a time.
+    perhaps it should be emulated, just in case.  !step0 (bit 0) goes to
+    74LS138 "A" input; !step1 (bit 1) goes to "B"; !step2 (bit 2) goes to "C".
+    The actual phase 0 is driven from !Y6 (110); phase 1 is driven from
+    !Y5 (101); phase 2 is driven from !Y3 (011).  Anything else produces no
+    driven phase.
+
+add support for lower case:
+   -add a global bit upper/lower case
+   -expose some UI means of toggling upper/lower case
+   -the crt code needs to generate another glyph map for lower case
+   -the crt code needs to select between maps based on upper/lower case
+
+Figure out some mechanism for saving modified floppy images
+    - chrome allows Filewriter API, but no others (yet)
+    - allow user to specify a username and disk name and host it for them?
+    ? https://github.com/eligrey/FileSaver.js/
+
+the emulator doesn't honor the disk write protection flag
+    (just like the real hardware!)
+but maybe it should for safety
+
+cleanup (ever?):
+    figure out how to put everything into one emulator namespace even 
+    when modules are in separate files.  Having "pad()" at the global
+    scope is particularly bad.
+    http://www.adequatelygood.com/JavaScript-Module-Pattern-In-Depth.html
+
+any point in adopting more ES5 features?
+    [].forEach(), [].map(), set, get, etc
+    set and get are much slower than hand made set and get methods
+
+page 5.20 of the maintenance manual talks about DRAM refresh.  It seems like a
+one-shot times out each 1 ms, and then 64 or 128 refresh cycles are performed.
+"refresh requires 32 us (64 us for 128 cycles) for completion."
+When the floppy is transferring data, 64 uS represents about five bit times.
+So refresh could add jitter of this magnitude during reads and writes.
+
+Better browser support
+    - FF 19,20
+        - if the window is made very narrow, the canvas element sticks to
+          the controls floating on the left, but the p element below the
+          canvas inside the div#screen keeps going left.  other browsers
+          drop the whole div#screen down instead.  worse, when the window
+          is made wide again, the canvas is positioned to the right of the
+          containing div.
+    - IE 8
+        - nope.  the trs-80 table & sprite hack occupies 100% of the CPU
+          and doesn't run realtime.  perhaps excanvas could work, but
+          it would require a lot of effort, have no double buffering.
+          the cc tank demo doesn't even work on ie8.
+          plus javascript on ie8 is slow, so the emu would be too.
+    - IE 9
+        - doesn't support fullscreen mode
+    - IE 10
+        - doesn't support fullscreen mode
+    - Chrome
+        - come key combinations get intercepted by Chrome
+            CTRL-N (new window)
+            CTRL-T (new tab)
+            CTRL-W (close window)
+            CTRL-[ escapes fullscreen mode, just like the ESC key
+        - can't "Run a program:" from the pulldown list when running locally,
+          due to a cross domain security check.  To get around it, start
+          chrome with this flag:
+              --allow-file-access-from-files
+    - Safari 5.1 on Mac
+        - fullscreen is broken (caniuse says partial support in 5, OK in 6)
+            (1) Apparently I can't invoke fullscreen mode from the onchange
+                handler, but I can invoke it from a click event on a button.
+                Perhaps this is part of a misguided security feature to
+                prevent an app from inducing fullscreen mode without user
+                input.
+            (2) Once in fullscreen mode, Safari, like Chrome, won't accept
+                alphanumeric key events unless the fullscreen mode, but
+                invoking the request with Element.ALLOW_KEYBOARD_INPUT
+                causes the request to fail.  This, despite the Apple docs
+                claiming it should work.  Others confirm this behavior.
+        - no local file reader (not supported in safari 5, but is in safari 6)
+    - Opera
+        - remote file access (at least to local disk) isn't working
+          could be the cross domain policy thing
+        - the disassembly isn't monospaced even though it is <pre>

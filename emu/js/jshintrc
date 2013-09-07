@@ -1,0 +1,16 @@
+{
+    "forin"         : true,  // Tolerate `for in` loops without `hasOwnPrototype`.
+    "noarg"         : true,  // Prohibit use of `arguments.caller` and `arguments.callee`.
+    "noempty"       : true,  // Prohibit use of empty blocks.
+    "eqeqeq"        : true,  // Require triple equals i.e. `===`.
+    "undef"         : true,  // Require all non-global variables be declared before they are used.
+    "unused"        : true,
+    "curly"         : true,  // Require {} for every new block or scope.
+    "browser"       : true,  // Standard browser globals e.g. `window`, `document`.
+    "jquery"        : true,  // Enable globals exposed by jQuery JavaScript library.
+    "indent"        : 4,
+    "maxerr"        : 500,    // Maximum errors before stopping.
+    "white"         : false, // Check against strict whitespace and indentation rules.
+
+    "globals"      : { "eg_MY_GLOBAL": false }  // also, last item, so no trailing comma
+}

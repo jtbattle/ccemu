@@ -1,0 +1,186 @@
+body
+{
+    height:100%;
+    background-color:#f4f4f4;
+}
+
+h1
+{
+    text-align:center;
+}
+
+div#controls
+{
+    float:left;
+}
+
+div#controls p
+{
+    margin-top:4px;
+    margin-bottom:4px;
+}
+
+/* all buttons in the group the same width */
+.but1
+{
+    width:8em;
+}
+
+/* opera doesn't allow programmatically sending clicks to a
+ * display:none element, so instead just move it off the page */
+#fileinput,
+#diskinput0,
+#diskinput1
+{
+    visibility: hidden;
+    position: absolute;
+    top: 0;
+    left: -5000px;
+}
+
+/* center it; add border so chars aren't flush with boundary */
+#canv
+{
+    display:block;
+    margin-left:auto;
+    margin-right:auto;
+    /* for some reason, on my computer with IE10, 30px results in a one pixel
+     * wide border around the canvas rect, inside the rounded margin, and
+     * 28px doesn't! It is the width, not the radius, that is the problem.
+     * it is also insensitive to the chosen browser and document modes.  */
+    border:solid 28px black;
+    border-radius:28px;
+}
+
+#screen
+{
+    width:auto;
+    margin:0 auto;
+}
+
+/* ========================= fullscreen diddling ========================= */
+
+:-moz-full-screen #canv
+{
+    position:fixed;
+    top:0; right:0; bottom:0; left:0;
+    margin:auto;
+    box-sizing:border-box;
+    width:90%;
+    height:90%;
+    border-radius:0;
+    border:0;
+}
+
+/* apparently we can't list the two selectors separated with commas,
+ * and we have to repeat this stuff for each */
+:-webkit-full-screen #canv
+{
+    position:fixed;
+    top:0; right:0; bottom:0; left:0;
+    margin:auto;
+    box-sizing:border-box;
+    width:90%;
+    height:90%;
+    border-radius:0;
+    border:0;
+}
+
+/* for some reason, FF displays the drive labels, even though
+ * they are not inside the element which fullscreen was applied to */
+:-moz-full-screen div#drives { display:none; }
+
+/* ====================== virtual keyboard interface ====================== */
+
+#virtualkeyboard 
+{
+    clear:both;
+    margin-top:3em;
+    display:none;
+}
+
+#virtualkeyboard button
+{
+    font-size:9px;
+    height:5.5em;
+    width:5.5em;
+    padding:0;
+    color:#fff;
+    border-radius:8px;
+}
+
+button#black    { background-color:#000; }
+button#blue     { background-color:#00f; }
+button#red      { background-color:#f00; }
+button#magenta  { background-color:#f0f; }
+button#green    { background-color:#0f0; color:#000; }
+button#cyan     { background-color:#0ff; color:#000; }
+button#yellow   { background-color:#ff0; color:#000; }
+button#white    { background-color:#fff; color:#000; }
+button.fcn      { background-color:rgb(191,177,130); }
+button.norm     { background-color:rgb(171,138,104); }
+button.rstrow   { background-color:rgb(167,30,8); }
+
+/* ======================== floppy disk interface ======================== */
+
+div#drivelabels p
+{
+    display:inline;
+    margin:0;
+}
+
+div#driveselection
+{
+    clear:both;
+    display:inline;
+    margin:0;
+}
+
+#drivegroup0 { float:left;  padding-left:4em; }
+#drivegroup1 { float:right; padding-right:4em; }
+
+p#drive0 { margin:0; }
+p#drive1 { margin:0; }
+
+#disksel0 { margin:0; }
+#disksel1 { margin:0; }
+
+span#CD0, span#CD1
+{
+    padding-left:4px; padding-right:4px;
+}
+
+/* ========================= debugger interface ========================= */
+
+/* hide by default: javascript can unhide it when it wants */
+.debugger
+{
+    display:none;
+}
+
+/* input box where you specify how many ops "Run n" should execute */
+#nval
+{
+    width:5em;
+}
+
+/* a place to report how long it took to run n instructions */
+#runnmsg
+{
+    font-family:monospace;
+    display:inline;
+}
+
+/* disassembler register window uses fixed width font */
+#regtable td,
+#regtable th
+{
+    font-family:"Courier New", monospace;
+    font-size:14px;
+}
+
+/* hide the debuggger interface */
+button#run_debug { display: none; }
+
+/* vim:et:sw=4:
+ */
