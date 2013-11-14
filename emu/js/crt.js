@@ -285,7 +285,7 @@ var crt = (function () {
         // draw the cursor on the backing store
         var cursorX = smc5027.cursorX();
         var cursorY = smc5027.cursorY();
-        var doCursor = blinkOn() &&  // or !blinkOn() ?
+        var doCursor = !blinkOn() &&
                        (cursorX < 64) && (cursorY < 32) &&
                        !autotyper.isRunning();
         cursorY = (cursorY - firstRow + 32) % 32;  // scroll adjustment
