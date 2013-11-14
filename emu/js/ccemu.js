@@ -39,7 +39,7 @@
 // option flags for jslint:
 /* global console, alert */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
-/* global system_rom_6_78, system_rom_8_76, crt_timing_rom */
+/* global system_rom_6_78, system_rom_8_79, crt_timing_rom */
 /* global floppy_dbg */
 
 // GLOBALS
@@ -515,8 +515,8 @@ var ccemu = (function () {
     function setScreenSize(idx, scaling) {
         // take the focus off the control, otherwise subsequent
         // keyboard events can activate it inadvertently
-        var scalingf = parseFloat(scaling);
         $('#ssizesel').blur();
+        var scalingf = parseFloat(scaling);
         if (scalingf > 4) {
             var e = document.getElementById('screen');
             // scale up from a crisp image, not something already interpolated
@@ -540,6 +540,15 @@ var ccemu = (function () {
         if (f) {
             f.call(element, Element.ALLOW_KEYBOARD_INPUT);
         }
+    }
+
+    function setCharacterset(idx) {
+        // take the focus off the control, otherwise subsequent
+        // keyboard events can activate it inadvertently
+        $('#chsetsel').blur();
+        crt.setCharset(idx);
+        crt.markDirty();
+        crt.refreshDisplay();
     }
 
     function populateFilePulldown(id) {
@@ -664,6 +673,11 @@ var ccemu = (function () {
             var index = $('#ssizesel')[0].selectedIndex;
             var val = $('#ssizesel')[0].value;
             setScreenSize(index, val);
+        });
+        $('#chsetsel').change(function () {
+            var index = $('#chsetsel')[0].selectedIndex;
+            var val = $('#chsetsel')[0].value;
+            setCharacterset(index);
         });
         $('#run_debug').click(function () {
             runOrDebug('toggle');
@@ -824,6 +838,7 @@ var ccemu = (function () {
             $('#disksel' + i).val('prompt');
         }
         $('#ssizesel').val('1.00');
+        $('#chsetsel').val('Standard');
 
         // connect functions up to html elements
         bindEvents();

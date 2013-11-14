@@ -34,6 +34,12 @@
           <option value="2.00">2.00 x
       </select>
 
+      <p>Character set:</p>
+      <select id="chsetsel">
+          <option value="Standard" selected>Standard
+          <option value="Lower case">Lower case
+      </select>
+
       <p>Virtual keyboard:</p>
       <input type="radio" id="vkNone"   name="vkSize" value="None" checked="checked">None
       <input type="radio" id="vkSmall"  name="vkSize" value="S">S
@@ -164,9 +170,6 @@
     <pre id="disassemble"></pre>
 </div>
 
-<!--
-  vim:expandtab:sw=4
-  -->
 </div>
 <script type="text/javascript" src="js/jquery-1.9.1.js"></script>
 <script type="text/javascript" src="js/js8080.js"></script>

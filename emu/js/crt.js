@@ -27,7 +27,7 @@
 //============================================================================
 
 // option flags for jslint:
-/* global ccemu, tms5501, smc5027, autotyper, uf6_rom, uf6_rom_lowercase */
+/* global alert, ccemu, tms5501, smc5027, autotyper, uf6_rom, uf6_rom_lowercase */
 
 var crt = (function () {
 
@@ -43,7 +43,7 @@ var crt = (function () {
 
     function init() {
         initCanvas();
-        initFonts();
+        setCharset(0);
     }
 
     // find the display canvas and build an offscreen canvas
@@ -107,16 +107,21 @@ var crt = (function () {
     // Each map has a glyph set stacked horizontally, and there
     // are 64 of these in each fg/bg combination, stacked 64 high.
 
-    function initFonts() {
+    // 0=standard character set; 1=lowercase mod selected
+    function setCharset(glyphset_idx) {
 
         var mapIdx, font;
         var fg_r, fg_g, fg_b;
         var bg_r, bg_g, bg_b;
         var charrow, bit, pix, off;
         var numChars;
-        var glyph_rom = (1) ? uf6_rom : uf6_rom_lowercase;
-
         fontmap = [];
+
+        if (glyphset_idx < 0 || glyphset_idx > 1) {
+            alert("programming error: setCharset(idx) argument out of range");
+        }
+
+        var glyph_rom = (glyphset_idx) ? uf6_rom_lowercase : uf6_rom;
 
         // render text mode and plot mode
         for (var plot = 0; plot <= 1; plot++) {
@@ -231,6 +236,7 @@ var crt = (function () {
                      (!dblhi) ? 0 :
                      (y & 1)  ? 3 :
                                 2;
+
         var font = fontmap[mapIdx];
 
         // render to offscreen canvas
@@ -381,6 +387,7 @@ var crt = (function () {
         'init':            init,
         'vsync':           vsync,
         'refreshDisplay':  refreshDisplay,
+        'setCharset':      setCharset,
         'updateChar':      updateChar,
         'markDirty':       markDirty,
         'blitDisplay':     blitDisplay,
