@@ -589,13 +589,13 @@ var ccemu = (function () {
 
     function populateFloppyPulldown(id) {
         var disks = [
-            { label: 'Basic Utilities', value: 'disks/basic_util.ccvf' },
-            { label: 'Blackjack',       value: 'disks/blackjack.ccvf'  },
-            { label: 'Disk Formatter',  value: 'disks/formatter.ccvf'  },
-            { label: 'Hangman',         value: 'disks/hangman.ccvf'    },
-            { label: 'Sampler',         value: 'disks/sampler.ccvf'    },
-            { label: 'Sharks',          value: 'disks/sharks.ccvf'     },
-            { label: 'Swarms',          value: 'disks/swarms.ccvf'     }
+            { label: 'BASIC Utilities', value: 'disks/BASIC_utilities.ccvf' },
+            { label: 'Blackjack',       value: 'disks/blackjack.ccvf'       },
+            { label: 'Disk Formatter',  value: 'disks/formatter.ccvf'       },
+            { label: 'Hangman',         value: 'disks/hangman.ccvf'         },
+            { label: 'Sampler',         value: 'disks/sampler.ccvf'         },
+            { label: 'Sharks',          value: 'disks/sharks.ccvf'          },
+            { label: 'Swarms',          value: 'disks/swarms.ccvf'          }
         ];
         var pd = $(id);
         var opttag = '<option></option>';

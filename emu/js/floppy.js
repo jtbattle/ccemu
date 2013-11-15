@@ -112,10 +112,10 @@ function Floppy(unit_num) {
         }
     }
 
-    // write a gap of all 0 for N bits
+    // write a gap of all 1 for N bits
     function writeGap(numBits) {
         for (var n = 0; n < numBits; n++) {
-            writeBit(0);
+            writeBit(1);
         }
     }
 
@@ -124,7 +124,7 @@ function Floppy(unit_num) {
         var len = bytes.length;
         for (var n=0; n < len; n++) {
             var byt = bytes[n];
-            writeBit(1);  // start bit
+            writeBit(0);  // start bit
             writeBit(byt & 0x01);
             writeBit(byt & 0x02);
             writeBit(byt & 0x04);
@@ -133,7 +133,7 @@ function Floppy(unit_num) {
             writeBit(byt & 0x20);
             writeBit(byt & 0x40);
             writeBit(byt & 0x80);
-            writeBit(0);  // stop bit
+            writeBit(1);  // stop bit
         }
     }
 
@@ -154,7 +154,7 @@ function Floppy(unit_num) {
         var prev = peekBit(-1);
         for (var n = 0; n < bitsPerTrack; n++) {
             var pb = peekBit(n);
-            if (!prev && pb) {
+            if (prev && !pb) {
                 return n;
             }
             prev = pb;
@@ -198,7 +198,7 @@ function Floppy(unit_num) {
     // next byte and report the one which just went past
     function readByteCallback() {
         var startBit = peekBit(0);
-        assert(startBit === 1, 'readByteCallback didn\'t find a start bit!');
+        assert(startBit === 0, 'readByteCallback didn\'t find a start bit!');
         var byteVal = (peekBit(1) << 0) |
                       (peekBit(2) << 1) |
                       (peekBit(3) << 2) |
@@ -207,7 +207,7 @@ function Floppy(unit_num) {
                       (peekBit(6) << 5) |
                       (peekBit(7) << 6) |
                       (peekBit(8) << 7);
-        var framingError = peekBit(9);  // stop bit should be 0
+        var framingError = !peekBit(9);  // stop bit should be 1
 
         curPosition += 10;
         if (curPosition >= bitsPerTrack) {
@@ -281,7 +281,7 @@ function Floppy(unit_num) {
                                 ' writing stream of ' + bits + ' bits');
                 }
                 for (var n = 0; n < bits; n++) {
-                    writeBit(0);    // FIXME: what if break status is set?
+                    writeBit(1);    // FIXME: what if break status is set?
                 }
                 if (0) {
                     // more accurate, but worth the complexity?
@@ -301,11 +301,11 @@ function Floppy(unit_num) {
                         ' offset=' + curPosition +
                         ' writing ' + value.toString(16));
         }
-        writeBit(1);  // start bit
+        writeBit(0);  // start bit
         for (var n = 0; n < 8; n++) {
             writeBit((value >> n) & 1);
         }
-        writeBit(0);  // stop bit -- FIXME: 5501 can be programmed for 2 stops
+        writeBit(1);  // stop bit -- FIXME: 5501 can be programmed for 2 stops
         var ticks = Math.floor(10 * bitToTickScale);
         writeStart = ccemu.getTickCount() + ticks;
         writeByteTimer = scheduler.oneShot(ticks, writeByteCallback,
@@ -725,7 +725,7 @@ function Floppy(unit_num) {
             var run = 0;
             while (bitptr < limit && run < 50) {
                 var bit = getBit(0);
-                run = (bit) ? 0 : (run+1);
+                run = (bit) ? (run+1) : 0;
                 bitptr++;
             }
         }
@@ -734,7 +734,7 @@ function Floppy(unit_num) {
             var prev = getBit(-1);
             var cur  = getBit(0);
             // find a start bit
-            while (prev || !cur) {
+            while (!prev || cur) {
                 bitptr++;
                 prev = cur;
                 cur = getBit(0);

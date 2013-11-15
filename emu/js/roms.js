@@ -4378,19 +4378,22 @@ var uf6_rom_lowercase = [
 // offloaded this to an exteral ROM so they could tweak timing for different
 // markets without having to create different ROM sets for each market.
 //
-// FIXME: this wasn't dumped from a real ROM -- it is just a guess
+// locations 0 through 5 came from the v8.79 BASIC ROM, which hardcodes the
+// init values in ROM, instead of accessing the PROM.  It is moot anyway,
+// as ISC switched to using a semi-custom ROM 5027 CRT controller with the
+// timing in on-chip mask ROM.
 var crt_timing_rom = [
 //  value     addr    bits  meaning
-    0x4B,  /* 0x00 -- [7:0] horizontal line count   (3+3+64+6-1)          */
-    0x80,  /* 0x01 --   [7] (non)interlaced mode    (1=interlaced)        */
-           /*         [6:3] hsync width             (3 chars)             */
-           /*         [2:0] hsync delay             (3 chars)             */
-    0x3B,  /* 0x02 -- [6:3] scans per data row      (7=8 rows/char)       */
-           /*         [2:0] chars per data row      (3=64 chars/row)      */
-    0x5F,  /* 0x03 -- [7:6] skew bits               (1=1 chars)           */
-           /*         [5:0] data rows per frame     (31=32 rows)          */
-    0x06,  /* 0x04 -- [7:0] scan lines per frame    (6=525 scans/frame)   */
-    0x07,  /* 0x05 -- [7:0] vertical data start     (7=8 scans)           */
+    0x5C,  /* 0x00 -- [7:0] horizontal line count */
+    0x79,  /* 0x01 --   [7] (non)interlaced mode  */
+           /*         [6:3] hsync width           */
+           /*         [2:0] hsync delay           */
+    0x3B,  /* 0x02 -- [6:3] scans per data row    */
+           /*         [2:0] chars per data row    */
+    0x9F,  /* 0x03 -- [7:6] skew bits             */
+           /*         [5:0] data rows per frame   */
+    0x06,  /* 0x04 -- [7:0] scan lines per frame  */  /* 0x21 for 50 Hz */
+    0x0C,  /* 0x05 -- [7:0] vertical data start   */
     0x1F,  /* 0x06 -- [5:0] last displayed data row (31=no scroll offset) */
     /* nothing after this is read by the FCS/BASIC ROM                    */
     0x00,  /* 0x07 */
