@@ -112,31 +112,6 @@ function Floppy(unit_num) {
         }
     }
 
-    // write a gap of all 1 for N bits
-    function writeGap(numBits) {
-        for (var n = 0; n < numBits; n++) {
-            writeBit(1);
-        }
-    }
-
-    // write a stream of bytes, lsb first, with framing
-    function writeBytes(bytes) {
-        var len = bytes.length;
-        for (var n=0; n < len; n++) {
-            var byt = bytes[n];
-            writeBit(0);  // start bit
-            writeBit(byt & 0x01);
-            writeBit(byt & 0x02);
-            writeBit(byt & 0x04);
-            writeBit(byt & 0x08);
-            writeBit(byt & 0x10);
-            writeBit(byt & 0x20);
-            writeBit(byt & 0x40);
-            writeBit(byt & 0x80);
-            writeBit(1);  // stop bit
-        }
-    }
-
     function peekBit(off) {
         var posOff = curPosition + off;
         if (posOff < 0) {
@@ -479,11 +454,9 @@ function Floppy(unit_num) {
         var curSector = -1;
         var curTrack = -1;
         var hexBytes = [];   // accumulation of the bytes for this sector
-        var sectorBlocks = [];  // block level representation of disk
         var lines = image.split(/\r\n|\r|\n/g);
         var linesLen = lines.length;
         var lineNum;
-        var format;             // 'track' or 'sector'
         var trackData = [];
         var limit;              // number of bytes per track or sector
         var mo;                 // match object
@@ -533,50 +506,9 @@ function Floppy(unit_num) {
                 continue;
             }
 
-            // look for sector tag
-            mo = /^sector (\d+)/i.exec(line);
-            if (mo) {
-                if (format === 'track') {
-                    alert('Error: at line ' + lineNum + ', mixed track and sector data');
-                    return 1;  // error
-                }
-                format = 'sector';
-                limit = 128;  // bytes per sector
-                var newSector = parseInt(mo[1],10);
-                if (newSector === 0) {
-                    // create 10 dummy sectors for track 0
-                    while (sectorBlocks.length < 10) {
-                        sectorBlocks.push(dummySector);
-                    }
-                }
-                if (hexBytes.length !== 128 && curSector >= 0) {
-                    alert('Error: at line ' + lineNum + ', a new sector is started but\n' +
-                          "previous sector didn't supply 128 bytes of data");
-                    return 1;  // error
-                }
-                if (newSector !== curSector+1) {
-                    alert('Error: at line ' + lineNum + ', sector ' + newSector +
-                          ' was found, expected sector ' + (curSector+1));
-                    return 1;  // error
-                }
-                if (newSector >= 400) {
-                    alert('Error: at line ' + lineNum + ', sector ' + newSector +
-                          ' was found, but at most 400 are allowed');
-                    return 1;  // error
-                }
-                curSector++;
-                hexBytes = [];
-                continue;
-            }
-
             // look for track tag
             mo = /^track (\d+)/i.exec(line);
             if (mo) {
-                if (format === 'sector') {
-                    alert('Error: at line ' + lineNum + ', mixed track and sector data');
-                    return 1;  // error
-                }
-                format = 'track';
                 limit = 15360/8;  // bytes per track
                 var newTrack = parseInt(mo[1],10);
                 if (hexBytes.length !== 15360/8 && curTrack >= 0) {
@@ -599,7 +531,7 @@ function Floppy(unit_num) {
                 continue;
             }
 
-            // look for hex data associated with previous SECTOR or TRACK tag
+            // look for hex data associated with previous TRACK tag
             if (/^[0-9A-Fa-f]+$/.test(line)) {
                 if (line.length % 2 === 1) {
                     alert('Error: at line ' + lineNum +
@@ -618,12 +550,7 @@ function Floppy(unit_num) {
                 }
                 hexBytes = hexBytes.concat(lineBytes);
                 if (hexBytes.length === limit) {
-                    if (format === 'sector') {
-                        sectorBlocks.push(hexBytes);
-                    }
-                    if (format === 'track') {
-                        trackData.push(hexBytes);
-                    }
+                    trackData.push(hexBytes);
                 }
                 continue;
             }
@@ -633,71 +560,13 @@ function Floppy(unit_num) {
             return 1;  // error
         }
 
-        if (format === 'sector' && hexBytes.length !== limit && curSector >= 0) {
-            alert('Error: at line ' + lineNum + ', end of file seen but\n' +
-                  'final sector didn\'t supply ' + limit + ' bytes of data');
-            return 1;  // error
-        }
-        if (format === 'track' && hexBytes.length !== limit && curTrack >= 0) {
+        if (hexBytes.length !== limit && curTrack >= 0) {
             alert('Error: at line ' + lineNum + ', end of file seen but\n' +
                   'final track didn\'t supply ' + limit + ' bytes of data');
             return 1;  // error
         }
 
-        if (format === 'track') {
-            diskImage = trackData;
-        } else { // (format === 'sector')
-
-            // if we didn't get 400 blocks of data, pad it out
-            while (curSector < 440) {
-                sectorBlocks.push(dummySector);
-                curSector++;
-            }
-
-            // create a bit-level disk image of nothing but gap
-            // there are 41 tracks total
-            var trk;
-            for (trk=0; trk < 41; trk++) {
-                var blanktrack = new Array( bitsPerTrack/8 );
-                for (n = 0; n < bitsPerTrack/8; n++) {
-                    blanktrack[n] = 0;
-                }
-                trackData.push(blanktrack);
-            }
-            diskImage = trackData;
-
-            // convert blocks of data to tracks
-            var startingTrack = physTrack;
-            var interleave = [0,5,1,6,2,7,3,8,4,9];
-            var bytes, sec, isec, crc;
-            for (trk=0; trk < 41; trk++) {
-                physTrack = trk;
-                curPosition = 0;
-                for (sec = 0; sec < 10; sec++) {
-                    isec = interleave[sec];
-                    // write gap of 12 character times
-                    writeGap(12/*chars*/ * 10/*bits/char*/);
-                    // write header block
-                    bytes = [ 0x55, trk, isec ];     // address mark, track, sector
-                    writeBytes(bytes);
-                    crc = computeCRC(bytes);
-                    writeBytes(crc);
-                    // dummy bytes to give routine time to check the address block
-                    writeBytes([0xFF,0xFF,0xFF]);
-                    // write data block: data mark 0x5A, then 128 bytes, then crc
-                    bytes = [ 0x5A ].concat(sectorBlocks[trk*10+isec]);
-                    writeBytes(bytes);
-                    crc = computeCRC(bytes);
-                    writeBytes(crc);
-                }
-                // from here to end of track, write gap
-                writeGap(bitsPerTrack - curPosition);
-            }
-
-            // back to what it was before creating diskImage
-            physTrack = startingTrack;
-            curPosition = 0;
-        } // if sector
+        diskImage = trackData;
 
         // UI update
         var volLabel = decodeVolumeLabel();
@@ -797,39 +666,6 @@ function Floppy(unit_num) {
             }
         }
         return volLabel;
-    }
-
-    // this is the CRC function used by the compucolor FCS
-    // given a list of bytes, return the 16 crc, ls byte first
-    function computeCRC(bytes) {
-        var len = bytes.length;
-        var d = 0xFF,       // CRC high
-            e = 0xFF;       // CRC low
-        var a, h, l;
-        for (var n = 0; n < len; n++) {
-            a = bytes[n];
-            a = a ^ e;              // XRA  E
-            h = a;                  // MOV  H,A
-            a = (a >> 4) & 0xF;     // RRC; RRC; RRC; RRC; ANI 0FH
-            a = a ^ h;              // XRA  H
-            l = a;                  // MOV  L,A
-            a = ((a << 5) & 0xE0) | ((a >> 3) & 0x1F);   // RRC; RRC; RRC
-            h = a;                  // MOV  H,A
-            a = a & 0x1F;           // ANI  1FH
-            a = a ^ d;              // XRA  D
-            e = a;                  // MOV  E,A
-            a = h;                  // MOV  A,H
-            a = a & 0xE0;           // ANI  0E0H
-            a = a ^ l;              // XRA  L
-            d = a;                  // MOV  D,A
-            a = h;                  // MOV  A,H
-            a = ((a << 7) & 0x80) | ((a >> 1) & 0x7F);  // RRC
-            a = a & 0xF0;           // ANI  0F0H
-            a = a ^ e;              // XRA  E
-            e = a;                  // MOV  E,A
-        }
-
-        return [e, d];
     }
 
     return {
