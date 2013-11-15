@@ -39,7 +39,7 @@
 // option flags for jslint:
 /* global console, alert */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
-/* global system_rom_6_78, system_rom_8_79, crt_timing_rom */
+/* global system_rom_6_78, system_rom_8_79 */
 /* global floppy_dbg */
 
 // GLOBALS
@@ -136,27 +136,36 @@ var ccemu = (function () {
     function input(port) {
 
         // TMS5501 I/O chip
-        if ( (port >= 0x00 && port <= 0x0F) ||
-             (port >= 0x10 && port <= 0x1F) ) {
+        if (port >= 0x00 && port <= 0x1F) {
             return tms5501.rd(port & 0x0F);
         }
 
         // SMC 5027 CRT chip
-        if ( (port >= 0x60 && port <= 0x6F) ||
-             (port >= 0x70 && port <= 0x7F) ) {
-            return smc5027.wr(port & 0x0F);
-        }
+        // The compucolor drives the chip's !DS (data strobe) input from the
+        // 8080 !IOW signal (I/O write).  This means the part isn't selected
+        // on reads.
+        // if (0 && (port >= 0x60 && port <= 0x7F)) {
+        //     return smc5027.rd(port & 0x0F);
+        // }
 
         // the service manual claims those are the only two i/o devices,
         // but the ROM reads from IN port 0x80 to 0x86 and uses those values
         // to initialize the 5027 registers 0x60-0x65.  A small ROM lives at
         // that address.  It is 32 words, but only the first seven are read
         // by the boot code.
-        if ((0x80 <= port && port < 0x9F)) {
-            return crt_timing_rom[port - 0x80];
-        }
+        //
+        // It turns out that most machines didn't have this PROM installed
+        // because the machine used a mask ROM version of the 5027.
+        // if (0x80 <= port && port < 0x9F) {
+        //     return crt_timing_rom[port - 0x80];
+        // }
 
-        return 0x00;  // not mapped
+        // it turns out that in real hardware, INP(P) for an unmapped port P
+        // returns P!  This is because the last byte on the data bus was P,
+        // and when a read is performed, nothing is selected so nothing drives
+        // the data bus, so residual capacitance causes the last value on the
+        // bus, the 2nd byte of "IN #" to be seen.
+        return port;  // unmapped address
     }
 
     function output(port, value) {
@@ -676,7 +685,6 @@ var ccemu = (function () {
         });
         $('#chsetsel').change(function () {
             var index = $('#chsetsel')[0].selectedIndex;
-            var val = $('#chsetsel')[0].value;
             setCharacterset(index);
         });
         $('#run_debug').click(function () {

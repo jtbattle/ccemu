@@ -51,49 +51,46 @@ var smc5027 = (function () {
     function cursorY() { return regState[0x8]; }
 
     // read device register
+    // the chip doesn't have a read/write select.  instead, the address
+    // indicates the read or write.  Only two registers are readable:
+    // cursor X and cursor Y, which are separate from the address to write
+    // these values.  However, the compucolor doesn't select the chip on reads.
     function rd(port) {
         switch (port) {
 
-        case 0x0: // horizontal line count
-        case 0x1: // hsync, interlace
-        case 0x2: // scans/row, chars/row
-        case 0x3: // data rows per frame
-        case 0x4: // scan lines/frame
-        case 0x5: // vertical data start
-        case 0x6: // last displayed data row (scroll control)
         case 0x8: // read cursor X location
         case 0x9: // read cursor Y location
             return regState[port] || 0x00;
-
-        case 0x7: // processor load command (don't use)
-            break;
-        case 0xA: // issue reset command (don't use)
-            break;
-        case 0xB: // scroll up one line
-            break;
-        case 0xC: // load cursor X location
-            break;
-        case 0xD: // load cursor Y location
-            break;
-        case 0xE: // load start timing (don't use)
-            break;
-        case 0xF: // self load command (don't use)
-            break;
         }
 
         return 0x00;
     }
 
     // write device register
-    // FIXME:
-    //    reset register behavior
-    //    model more of this?
+    // FIXME: model more of this?
     function wr(port, value) {
         switch (port) {
+
+        // control registers -- set once just after reset.
+        // the compucolor uses a mask-ROM 5027 anyway; these aren't writable
+        case 0x0: // horizontal line count
+        case 0x1: // hsync, interlace
+        case 0x2: // scans/row, chars/row
+        case 0x3: // data rows per frame
+        case 0x4: // scan lines/frame
+        case 0x5: // vertical data start
+            break;
+
+        // last displayed data row (scroll control)
+        // the compucolor ROM doesn't touch it, but a program might
+        case 0x6:
+            regState[port] = value;
+            break;
+
         // scroll up register
         case 0xB:
 //          var rows = regState[0x3];    // #rows of chars/display - 1
-            var rows = 32 - 1;           // FIXME: hardcoded for now
+            var rows = 32 - 1;           // hardcoded for now
             var curEnd = regState[0x6];  // last displayed row
             regState[0x6] = (curEnd + 1) % (rows + 1);
             break;
@@ -108,8 +105,20 @@ var smc5027 = (function () {
             regState[0x8] = value & 0x3F;  // bits [5:0]
             break;
 
-        default:
-            regState[port] = value;
+        // the compucolor ROM does touch these shortly after reset
+        // I don't believe their effects are software visible, so no
+        // need to model them
+        case 0xA: // issue reset command
+            // this resets and freezes the counters until a subsequent
+            // start command (0xE)
+            break;
+        case 0xE: // load start timing
+            break;
+
+        // other registers, not normaly used by the compucolor,
+        // so not modeled
+        case 0x7: // processor load command
+        case 0xF: // self load command
             break;
         }
 
@@ -119,7 +128,7 @@ var smc5027 = (function () {
     // report which row is the first to display (hw scrolling)
     function firstDisplayRow() {
 //      var rows = regState[0x3];    // #rows of chars/display - 1
-        var rows = 32 - 1;           // FIXME: hardcoded for now
+        var rows = 32 - 1;           // hardcoded for now
         var curEnd = regState[0x6];  // last displayed row
         return (curEnd + 1) % (rows + 1);
     }
