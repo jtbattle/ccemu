@@ -35,7 +35,7 @@ var tms5501 = (function () {
 
     'use strict';
 
-    var debugging = 1;
+    var debugging = 0;
 
     var rxdata = 0x00,     // serial rx data
 
@@ -315,7 +315,7 @@ var tms5501 = (function () {
             if (value & 0x03 === 0x02) {
                 // serial tx break
                 // FIXME: not modeled
-                alert('serial tx requests a line break');
+                assert(!debugging, 'serial tx requests a line break');
             }
             // bit 2: interrupt 7 select
             // FIXME: I assume this is only programmed to 0 (use timer #5)
