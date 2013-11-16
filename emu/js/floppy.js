@@ -44,6 +44,7 @@ function Floppy(unit_num) {
     'use strict';
 
     var unit = unit_num;   // eg: '0'
+    var numPhases = 3;
     var devName = 'CD' + unit + ':';  // eg: 'CD0:'
 
     // --- device invariants:
@@ -66,7 +67,8 @@ function Floppy(unit_num) {
     var curSelected = 0;  // 1 if we are currently selected
     var curStepper = 0;   // stepper motor phase
     var curWrite = 0;     // write control
-    var physTrack = 0;    // track we are on
+    var stepTrack = 0;    // tracks stepper motor is away from track zero
+    var diskTrack = 0;    // logical track the stepper is over
     var curPosition = 0;  // rotational position, in bits
     var writeStart = 0;   // time of most recent write-related event
 
@@ -82,7 +84,8 @@ function Floppy(unit_num) {
         CPU_FREQ = ccemu.getCpuFreq();
         tickToBitScale = 76800 / CPU_FREQ;
         bitToTickScale = CPU_FREQ / 76800;
-        physTrack = 0;
+        stepTrack = 0;
+        diskTrack = 0;
         curPosition = 0;
         if (motorTimer) {
             if (floppy_dbg) {
@@ -102,9 +105,9 @@ function Floppy(unit_num) {
         var bitPtr  = (curPosition & 7);
 
         if (bitval) {
-            diskImage[physTrack][bytePtr] |= (0x01 << bitPtr);
+            diskImage[diskTrack][bytePtr] |= (0x01 << bitPtr);
         } else {
-            diskImage[physTrack][bytePtr] &= ~(0x01 << bitPtr);
+            diskImage[diskTrack][bytePtr] &= ~(0x01 << bitPtr);
         }
         curPosition++;
         if (curPosition >= bitsPerTrack) {
@@ -121,7 +124,7 @@ function Floppy(unit_num) {
         }
         var bytePtr = (posOff >> 3);
         var bitPtr  = (posOff & 7);
-        var byteval = diskImage[physTrack][bytePtr];
+        var byteval = diskImage[diskTrack][bytePtr];
         return (byteval >> bitPtr) & 1;
     }
 
@@ -358,6 +361,63 @@ function Floppy(unit_num) {
         return lines;
     }
 
+    // if the input phase is not valid, no windings are driven, and the
+    // stepper keeps its current position
+    function effectivePhase(phase_in) {
+        if (numPhases === 3) {
+            return (phase_in === 4) ? 4
+                 : (phase_in === 2) ? 2
+                 : (phase_in === 1) ? 1
+                                    : curStepper;
+        } else {
+            return (phase_in === 4) ? 4
+                 : (phase_in === 2) ? 2
+                 : (phase_in === 1) ? 1
+                 : (phase_in === 0) ? 0
+                                    : curStepper;
+        }
+    }
+
+    // return true if the new phase state constitutes a step out
+    function stepOut(newPhase) {
+        if (numPhases === 3) {
+            return ((curStepper === 1 && newPhase === 4) ||
+                    (curStepper === 2 && newPhase === 1) ||
+                    (curStepper === 4 && newPhase === 2)) ;
+        } else {
+            return ((curStepper === 1 && newPhase === 0) ||
+                    (curStepper === 2 && newPhase === 1) ||
+                    (curStepper === 4 && newPhase === 2) ||
+                    (curStepper === 0 && newPhase === 4)) ;
+        }
+    }
+
+    // return true if the new phase state constitutes a step in
+    function stepIn(newPhase) {
+        if (numPhases === 3) {
+            return  ((curStepper === 1 && newPhase === 2) ||
+                     (curStepper === 2 && newPhase === 4) ||
+                     (curStepper === 4 && newPhase === 1)) ;
+        } else {
+            return  ((curStepper === 1 && newPhase === 2) ||
+                     (curStepper === 2 && newPhase === 4) ||
+                     (curStepper === 4 && newPhase === 0) ||
+                     (curStepper === 0 && newPhase === 1)) ;
+        }
+    }
+
+    // 4-phase motors step twice per logical disk track
+    function maxStepTrack() {
+        return (numPhases === 3) ? 40 : 80;
+    }
+
+    // 3 phase steppers are 1:1 with disk tracks
+    // 4 phase steppers are 2:1 with disk tracks
+    function stepToDiskTrack(track) {
+        return (numPhases === 3) ? track
+                                 : (track >> 1);
+    }
+
     // called whenever the 5501 OUT port is written, notifying us if
     // this unit has been selected or not, as well as the !read/write
     // control, and the track stepper motor phase information.
@@ -378,37 +438,27 @@ function Floppy(unit_num) {
                 curSelected = 1;
             }
 
-            // at least one program (FMTCD1) doesn't drive any phase windings
-            // between steps.  to model this behavior, we just use the current
-            // mechanical phase if there is no driving phase.
-            var effectivePhase = (stepper === 4) ? 4
-                               : (stepper === 2) ? 2
-                               : (stepper === 1) ? 1
-                                                 : curStepper;
-
             // update track if stepper phase changed
-            if ( (curStepper === 1 && effectivePhase === 4) ||
-                 (curStepper === 2 && effectivePhase === 1) ||
-                 (curStepper === 4 && effectivePhase === 2) ) {
-                // step out
+            var effPhase = effectivePhase(stepper);
+            if (stepOut(effPhase)) {
                 updateWriteStream();
-                physTrack = (physTrack === 0) ? 0 : (physTrack - 1);
+                stepTrack = (stepTrack === 0) ? 0 : (stepTrack - 1);
+                diskTrack = stepToDiskTrack(stepTrack);
                 cancelReadByte();
                 if (floppy_dbg) {
-                    console.log(devName + ' step out: physTrack=' + physTrack);
+                    console.log(devName + ' step out: stepTrack=' + stepTrack);
                 }
-            } else if ( (curStepper === 1 && effectivePhase === 2) ||
-                        (curStepper === 2 && effectivePhase === 4) ||
-                        (curStepper === 4 && effectivePhase === 1) ) {
-                // step in
+            } else if (stepIn(effPhase)) {
                 updateWriteStream();
-                physTrack = (physTrack === 40) ? 40 : (physTrack + 1);
+                stepTrack = (stepTrack === maxStepTrack()) ? maxStepTrack()
+                                                           : (stepTrack + 1);
+                diskTrack = stepToDiskTrack(stepTrack);
                 cancelReadByte();
                 if (floppy_dbg) {
-                    console.log(devName + ' step in:  physTrack=' + physTrack);
+                    console.log(devName + ' step in:  stepTrack=' + stepTrack);
                 }
             }
-            curStepper = effectivePhase;
+            curStepper = effPhase;
 
             // deselecting write: commit any residual write stream
             // before switching it off
@@ -697,16 +747,22 @@ function Floppy(unit_num) {
         return volLabel;
     }
 
+    // 3-phase motor or 4-phase motor?
+    function setStepperPhases(count) {
+        numPhases = count;
+    }
+
     return {
-        'constructor'  : Floppy,
-        'getPosition'  : function () { return curPosition; },  // FIXME: here just for debugging
-        'reset'        : reset,
-        'select'       : select,
-        'getStatus'    : getStatus,
-        'txData'       : txData,
-        'insertFloppy' : insertFloppy,
-        'removeFloppy' : removeFloppy,
-        'getFile'      : getFile
+        'constructor'      : Floppy,
+        'setStepperPhases' : setStepperPhases,
+        'getPosition'      : function () { return curPosition; },  // FIXME: here just for debugging
+        'reset'            : reset,
+        'select'           : select,
+        'getStatus'        : getStatus,
+        'txData'           : txData,
+        'insertFloppy'     : insertFloppy,
+        'removeFloppy'     : removeFloppy,
+        'getFile'          : getFile
     };
 }
 

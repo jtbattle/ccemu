@@ -158,6 +158,12 @@ span#CD0, span#CD1
     display:none;
 }
 
+/* hide by default: is it worth the complexity? */
+#romdiv
+{
+    display:none;
+}
+
 /* hide the debuggger interface by default */
 button#run_debug { display: none; }
 

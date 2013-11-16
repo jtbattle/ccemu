@@ -560,6 +560,15 @@ var ccemu = (function () {
         crt.refreshDisplay();
     }
 
+    function setROMidx(idx) {
+        // take the focus off the control, otherwise subsequent
+        // keyboard events can activate it inadvertently
+        $('#romsel').blur();
+        var name = (idx === 0) ? 'v6.78' : 'v8.79';
+        setROMVersion(name);
+        ccemu.hardReset();
+    }
+
     function populateFilePulldown(id) {
         var files = [
             { label: 'Acey Deucy',     value: 'source/aceyducy.ccc'  },
@@ -687,6 +696,10 @@ var ccemu = (function () {
             var index = $('#chsetsel')[0].selectedIndex;
             setCharacterset(index);
         });
+        $('#romsel').change(function () {
+            var index = $('#romsel')[0].selectedIndex;
+            setROMidx(index);
+        });
         $('#run_debug').click(function () {
             runOrDebug('toggle');
             $('#run_debug').blur();
@@ -805,28 +818,47 @@ var ccemu = (function () {
             (e.webkitRequestFullScreen !== undefined);
     }
 
+    function setROMVersion(name) {
+        var system_rom;
+        var stepper_phases;
+        if (name === 'v6.78') {
+            system_rom = system_rom_6_78;
+            stepper_phases = 3;
+        } else if (name === 'v8.79') {
+            system_rom = system_rom_8_79;
+            stepper_phases = 4;
+        } else {
+            alert("ERROR: setROMVersion called with " + name);
+            system_rom = system_rom_6_78;
+            stepper_phases = 3;
+        }
+        for (var i = 0; i < system_rom.length; ++i) {
+            wrUnsafe(i, system_rom[i]);
+        }
+        // the floppy stepper type is tied to the ROM version
+        for (i = 0; i < numFloppies; i++) {
+            floppy[i].setStepperPhases(stepper_phases);
+        }
+    }
+
     // this is called when the DOM is completely loaded,
     // and begins the emulation
     function startEmu() {
 
         detectFeatures();
 
-        var system_rom = (1) ? system_rom_6_78
-                             : system_rom_8_79;
-
         // build our resources
         for (var i = 0; i < 65536; ++i) {
             wrUnsafe(i, 0);
         }
-        for (i = 0; i < system_rom.length; ++i) {
-            wrUnsafe(i, system_rom[i]);
-        }
+
         cpu = new Cpu(ram, rd, wr, input, output);
         for(i = 0; i < numFloppies; i++) {
             floppy.push(new Floppy(i));
         }
         crt.init();
         smc5027.init();
+        setROMVersion('v6.78');
 
         // set up period events -- return objects are ignored because they
         // are never canceled
@@ -847,12 +879,17 @@ var ccemu = (function () {
         }
         $('#ssizesel').val('1.00');
         $('#chsetsel').val('Standard');
+        $('#romsel').val('v6.78');
 
         // connect functions up to html elements
         bindEvents();
 
+        // change this to "show()" if you want to allow selecting different
+        // ROM versions
+        $('#romdiv').show();
+
         // change this to "show()" if you want the debugger interface
-        $('#run_debug').show();
+        $('#run_debug').hide();
 
         updateScreenPlacement();
 

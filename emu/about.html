@@ -18,7 +18,7 @@
 <div id="wrapper">
 
 <h1>About the Compucolor II Emulator</h1>
-<p class="version">Version 2013.04.21</p>
+<p class="version">Version 2013.11.xx</p>
 
 <p>
 This emulator is written in javascript, and makes use of some fairly
@@ -33,9 +33,9 @@ the work and encouragement of others.
 </p>
 
 <ul>
-    <li>First off, thanks are due to David Jeppeson, who got this all started
+    <li>First off, thanks are due to David Jeppesen, who got this all started
         by giving me his old Compucolor.  I wanted one as the basis for
-        writing an emulator.  I'm embarrased to say that was back in 2002,
+        writing an emulator.  I'm embarrassed to say that was back in 2002,
         and it has taken me over a decade to make good on my intentions.
     </li>
     <li>The code to emulate the 8080 CPU was written by
@@ -52,21 +52,38 @@ the work and encouragement of others.
     </li>
     <li>The snazzy animation to make the debugger window open up and
         close, plus some behind the scenes logic to position elements
-        when the virtual CC-II CRT is resized was done via the popular
+        when the virtual Compucolor II CRT is resized was done via the popular
         <a href="http://jquery.com/">jQuery</a> core library.
     </li>
     <li><a href="http://www.rit.edu/cla/philosophy/Suits.html">Dr. David B. Suits</a>
         didn't realize it, but he lit a fire under me to finally make the
         time to write this emulator.  I had spent nearly a decade with the
-        intention of writing an emulator for the CC-II, but it never made it
-        to the top of my priority list.  After contacting David about
+        intention of writing an emulator for the Compcolor II, but it never
+        made it to the top of my priority list.  After contacting David about
         permission to scan his book, he pointed me at
         <a href="http://www.colandercombo.com/taxi/cc2.html">a more restricted javascript emulator</a>
-        for a machine closely related to the CC-II.
+        for a machine closely related to the Compucolor II.
         Although I didn't use any of that code, its shockingly small
         size made me realize that perhaps it wasn't as big of a job as
         I had feared; I began writing this emulator a couple days later.
     </li>
+</ul>
+
+<h3>Version 2013.11.xx</h3>
+
+<p>This is an unreleased checkpoint of work in progress, which is why
+   the date is "xx."
+
+<ul class="changes">
+    <li>added lower case character set mod</li>
+    <li>added option to use v8.79 ROMs</li>
+    <li>the cursor now blinks in phase with blinking text,
+        like the real machine</li>
+    <li>fixed some bugs in the floppy emulation</li>
+    <li>made an incompatible change to the virtual floppy disk format,
+        and simultaneously re-released all the floppy images in that
+        new format.</li>
+    <li>some very minor and obscure emulation modeling changes</li>
 </ul>
 
 <h3>Version 2013.04.21</h3>
