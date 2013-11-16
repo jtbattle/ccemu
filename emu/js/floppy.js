@@ -241,10 +241,26 @@ function Floppy(unit_num) {
     // we write a stream of bits corresponding from writeStart to the
     // current time.
     function updateWriteStream() {
+        if (diskImage === undefined) {
+            return;
+        }
+
         if (curWrite) {
             var now = ccemu.getTickCount();
             var delta = now - writeStart;
-            assert(delta >= -10, 'updateWriteStream has a negative delta of ' + delta);
+            if (delta < -10) {
+                // got called before the previous byte finished
+                // (10 ticks are allowed for slop in the scheduler)
+                // FMTCD1.PRG (a 3rd party formatter) triggers this because
+                // write is enable up to the very cycle where it simultaneously
+                // turns off write and steps the motor phase, right after having
+                // posted a byte write.
+                if (0 && floppy_dbg) {
+                    console.log('updateWriteStream has a negative delta of ' + delta);
+                }
+                // fall through and let the write happen anyway
+            }
+
             var bits = Math.floor(delta * tickToBitScale);
             // if this function gets called very frequently, we might progress
             // progress slowly, or not at all, because of truncation by the
@@ -270,6 +286,9 @@ function Floppy(unit_num) {
 
     // this is called when the 5501 is given a new byte to transmit
     function txData(value) {
+        if (diskImage === undefined) {
+            return;
+        }
         updateWriteStream();
         if (floppy_dbg) {
             console.log('T' + ccemu.getTickCount() + '::' + devName +
@@ -341,7 +360,9 @@ function Floppy(unit_num) {
 
     // called whenever the 5501 OUT port is written, notifying us if
     // this unit has been selected or not, as well as the !read/write
-    // control, and the track stepper motor phase information
+    // control, and the track stepper motor phase information.
+    // NOTE: it is possible for any combination of inputs to change
+    //       state simultaneously.
     function select(selected, write, stepper) {
 
         if (selected) {
@@ -357,10 +378,18 @@ function Floppy(unit_num) {
                 curSelected = 1;
             }
 
+            // at least one program (FMTCD1) doesn't drive any phase windings
+            // between steps.  to model this behavior, we just use the current
+            // mechanical phase if there is no driving phase.
+            var effectivePhase = (stepper === 4) ? 4
+                               : (stepper === 2) ? 2
+                               : (stepper === 1) ? 1
+                                                 : curStepper;
+
             // update track if stepper phase changed
-            if ( (curStepper === 1 && stepper === 4) ||
-                 (curStepper === 2 && stepper === 1) ||
-                 (curStepper === 4 && stepper === 2) ) {
+            if ( (curStepper === 1 && effectivePhase === 4) ||
+                 (curStepper === 2 && effectivePhase === 1) ||
+                 (curStepper === 4 && effectivePhase === 2) ) {
                 // step out
                 updateWriteStream();
                 physTrack = (physTrack === 0) ? 0 : (physTrack - 1);
@@ -368,9 +397,9 @@ function Floppy(unit_num) {
                 if (floppy_dbg) {
                     console.log(devName + ' step out: physTrack=' + physTrack);
                 }
-            } else if ( (curStepper === 1 && stepper === 2) ||
-                        (curStepper === 2 && stepper === 4) ||
-                        (curStepper === 4 && stepper === 1) ) {
+            } else if ( (curStepper === 1 && effectivePhase === 2) ||
+                        (curStepper === 2 && effectivePhase === 4) ||
+                        (curStepper === 4 && effectivePhase === 1) ) {
                 // step in
                 updateWriteStream();
                 physTrack = (physTrack === 40) ? 40 : (physTrack + 1);
@@ -379,15 +408,15 @@ function Floppy(unit_num) {
                     console.log(devName + ' step in:  physTrack=' + physTrack);
                 }
             }
-            curStepper = stepper;
+            curStepper = effectivePhase;
 
-            // make real any as yet uncommitted write stream
+            // deselecting write: commit any residual write stream
             // before switching it off
             if (curWrite && !write) {
                 updateWriteStream();
             }
 
-            // engage write logic as appropriate
+            // newly enabled write:
             if (write && (!curWrite || !curSelected)) {
                 cancelReadByte();
                 writeStart = ccemu.getTickCount();
@@ -430,6 +459,7 @@ function Floppy(unit_num) {
             }
 
             curSelected = 0;
+            curWrite = 0;
         }
     }
 
@@ -451,7 +481,6 @@ function Floppy(unit_num) {
     function insertFloppy(image) {
 
         var magicSeen = 0;
-        var curSector = -1;
         var curTrack = -1;
         var hexBytes = [];   // accumulation of the bytes for this sector
         var lines = image.split(/\r\n|\r|\n/g);

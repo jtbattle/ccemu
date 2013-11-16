@@ -27,7 +27,7 @@
 //============================================================================
 
 // option flags for jslint:
-/* global alert, console */
+/* global console */
 /* global ccemu, cpu, keybrd, floppy */
 /* global assert, floppy_dbg */
 
