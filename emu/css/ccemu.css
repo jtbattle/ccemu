@@ -158,6 +158,9 @@ span#CD0, span#CD1
     display:none;
 }
 
+/* hide the debuggger interface by default */
+button#run_debug { display: none; }
+
 /* input box where you specify how many ops "Run n" should execute */
 #nval
 {
@@ -178,9 +181,6 @@ span#CD0, span#CD1
     font-family:"Courier New", monospace;
     font-size:14px;
 }
-
-/* hide the debuggger interface */
-button#run_debug { display: none; }
 
 /* vim:et:sw=4:
  */

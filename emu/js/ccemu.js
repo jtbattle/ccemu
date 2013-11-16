@@ -851,6 +851,9 @@ var ccemu = (function () {
         // connect functions up to html elements
         bindEvents();
 
+        // change this to "show()" if you want the debugger interface
+        $('#run_debug').show();
+
         updateScreenPlacement();
 
         hardReset();
