@@ -40,7 +40,7 @@
 /* global console, alert */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
 /* global system_rom_6_78, system_rom_8_79 */
-/* global floppy_dbg */
+/* global floppy_dbg, saveAs */
 
 // GLOBALS
 var cpu,
@@ -191,9 +191,7 @@ var ccemu = (function () {
         tms5501.reset();     // timer & i/o interface chip
         smc5027.reset();     // video timing controller
         keybrd.reset();      // keyboard
-        for (var n = 0; n < numFloppies; n++) {
-            floppy[n].reset();
-        }
+        floppy.forEach(function(elem) { elem.reset(); });
 
         // [[[RESET]]] from the autotyper input text can force a reset,
         // but we don't want that to also kill the autotyper
@@ -264,10 +262,7 @@ var ccemu = (function () {
             timeHistory[timeHistoryPtr] = tDiff;
             timeHistoryPtr = (timeHistoryPtr + 1) % timeHistoryWindow;
             if (timeHistory.length === timeHistoryWindow) {
-                var tTotal = 0;
-                for (var tt = 0; tt < timeHistory.length; tt++) {
-                    tTotal += timeHistory[tt];
-                }
+                var tTotal = timeHistory.reduce(function(a,b) { return a+b; });
                 timeFractionBusy = tTotal / (timeHistory.length * TIMESLICE_MS);
             }
 
@@ -417,13 +412,24 @@ var ccemu = (function () {
 
     function diskDump(unit) {
         var text = floppy[unit].getFile();
-        var win = window.open('', 'diskwindow',
-            'width=350,height=350,menubar=1,toolbar=1,status=0,scrollbars=1,resizable=1');
-        if (win) {
-            for(var n = 0; n < text.length; n++) {
-                win.document.write(text[n] + '<br/>');
+        if (text !== undefined) {
+            if (browserSupports.fileApi) {
+                // offer save-as dialog
+                var term = text.map(function(elem) { return elem + "\n"; });
+                var blob = new Blob(term, {type: 'text/plain',
+                                           endings: 'native'});
+                saveAs(blob, "diskimage.ccvf");
+            } else {
+                // klunky: open window containing the text
+                var win = window.open('', 'diskwindow',
+                    'width=350,height=350,menubar=1,toolbar=1,status=0,scrollbars=1,resizable=1');
+                if (win) {
+                    for (var n = 0; n < text.length; n++) {
+                        win.document.write(text[n] + '<br/>');
+                    }
+                    win.document.close();
+                }
             }
-            win.document.close();
         }
     }
 
@@ -684,7 +690,12 @@ var ccemu = (function () {
                 return function () { diskPick(i); };
             })(n));
             $('#drive' + n).click( (function (i) {
-                return function (evt) { if (evt.ctrlKey) { diskDump(i); } };
+                return function (evt) {
+                    if ((navigator.platform === "MacIntel" && evt.altKey) ||
+                        (navigator.platform !== "MacIntel" && evt.ctrlKey)) {
+                        diskDump(i);
+                    }
+                };
             })(n));
         }
         $('#ssizesel').change(function () {
@@ -816,6 +827,13 @@ var ccemu = (function () {
             (e.requestFullScreen !== undefined)      ||
             (e.mozRequestFullScreen !== undefined)   ||
             (e.webkitRequestFullScreen !== undefined);
+
+        // blob
+        try {
+            browserSupports.blob = !!new Blob();
+        } catch(e) {
+            browserSupports.blob = false;
+        }
     }
 
     function setROMVersion(name) {
@@ -836,9 +854,9 @@ var ccemu = (function () {
             wrUnsafe(i, system_rom[i]);
         }
         // the floppy stepper type is tied to the ROM version
-        for (i = 0; i < numFloppies; i++) {
-            floppy[i].setStepperPhases(stepper_phases);
-        }
+        floppy.forEach(function(elem) {
+            elem.setStepperPhases(stepper_phases);
+        });
     }
 
     // this is called when the DOM is completely loaded,
@@ -853,7 +871,7 @@ var ccemu = (function () {
         }
 
         cpu = new Cpu(ram, rd, wr, input, output);
-        for(i = 0; i < numFloppies; i++) {
+        for (i = 0; i < numFloppies; i++) {
             floppy.push(new Floppy(i));
         }
         crt.init();
@@ -869,12 +887,12 @@ var ccemu = (function () {
 
         // set up the pulldown lists
         populateFilePulldown('#filesel');
-        for(i = 0; i < numFloppies; i++) {
+        for (i = 0; i < numFloppies; i++) {
             populateFloppyPulldown('#disksel' + i);
         }
         // default selections:
         $('#filesel').val('prompt');
-        for(i = 0; i < numFloppies; i++) {
+        for (i = 0; i < numFloppies; i++) {
             $('#disksel' + i).val('prompt');
         }
         $('#ssizesel').val('1.00');
@@ -886,7 +904,7 @@ var ccemu = (function () {
 
         // change this to "show()" if you want to allow selecting different
         // ROM versions
-        $('#romdiv').show();
+        $('.romdiv').hide();
 
         // change this to "show()" if you want the debugger interface
         $('#run_debug').hide();

@@ -159,7 +159,7 @@ span#CD0, span#CD1
 }
 
 /* hide by default: is it worth the complexity? */
-#romdiv
+.romdiv
 {
     display:none;
 }

@@ -14,6 +14,7 @@
         margin: 6px;
         max-width:45em;
     }
+
     .key {
         font-family:monospace;
         line-height:1.5em;
@@ -21,6 +22,10 @@
         border:1px solid black;
         background-color:#f4f4e0;
         border-radius:5px;
+    }
+
+    .romdiv {
+        display:none;
     }
 </style>
 </head>
@@ -43,7 +48,7 @@ of the dedicated keys that the Compucolor had (where is the "cyan" key?)
     <li><a href="#autotyping">Autotyping</a></li>
     <li><a href="#diskem">Disk Emulation</a></li>
     <li><a href="#virtual">Virtual Keyboard</a></li>
-    <li><a href="#ROMs">ROM Versions</a></li>
+    <li class="romdiv"><a href="#ROMs">ROM Versions</a></li>
     <li><a href="#charset">Character Set</a></li>
     <li><a href="#compatibility">Browser Compatibility</a></li>
     <li><a href="#random">Other Random Notes</a></li>
@@ -337,7 +342,7 @@ Compucolor documentation.
 </p>
 
 
-<h2><a id="ROMs">Character Set</a></h2>
+<h2><a id="charset">Character Set</a></h2>
 
 <p>
 The Compucolor II didn't have lower case characters; instead, the slots
@@ -353,6 +358,7 @@ letters while doing word processing.
 The pulldown labeled "Character set" allows making the same choice.
 </p>
 
+<div class="romdiv">
 <h2><a id="ROMs">ROM Versions</a></h2>
 
 <p>
@@ -367,6 +373,7 @@ and most of them were moved to a new location.
 For the most part, unless you have a specific reason to, just stick with
 the v6.78 ROMs.  v8.79 doesn't buy much but incompatibility.
 </p>
+</div>
 
 <h2><a id="compatibility">Browser Compatibility</a></h2>
 

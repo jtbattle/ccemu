@@ -101,7 +101,7 @@ var autotyper = (function () {
 
         // check for long lines
         var longlinesOk = false;
-        for(var n=0; n < len && !longlinesOk; n++) {
+        for (var n=0; n < len && !longlinesOk; n++) {
             if (pieces[n].length > 97) {
                 reply = confirm(
                         'Warning: some lines are greater than the maximum ' +

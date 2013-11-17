@@ -338,19 +338,22 @@ function Floppy(unit_num) {
 
     // return an array of lines of text representing the virtual disk image
     function getFile() {
+        if (diskImage === undefined) {
+            return undefined;
+        }
         var lines = [];
         lines.push('Compucolor Virtual Floppy Disk Image');
         if (writeProtected) {
             lines.push('Write Protect');
         }
-        for (var n = 0; n < label.length; n++) {
-            lines.push('Label ' + label[n]);
-        }
+        label.forEach(function(line) {
+            lines.push('Label ' + line);
+        });
         for (var trk = 0; trk < 41; trk++) {
             lines.push('Track ' + trk);
-            for(var group = 0; group < 15360/8; group += 32) {
+            for (var group = 0; group < 15360/8; group += 32) {
                 var hex = '';
-                for(var off = 0; off < 32; off++) {
+                for (var off = 0; off < 32; off++) {
                     var byt = diskImage[trk][group+off];
                     var ashex = (byt + 0x100).toString(16);
                     hex += ashex.substr(1,2);
@@ -541,13 +544,8 @@ function Floppy(unit_num) {
         var mo;                 // match object
         var n;
 
-        writeProtected = 0;     // until indicated otherwise
+        writeProtected = false;  // until indicated otherwise
         label = [];
-
-        var dummySector = new Array(128);
-        for (n = 0; n < 128; n++) {
-            dummySector[n] = 0xE5;
-        }
 
         for (lineNum=1; lineNum <= linesLen; lineNum++) {
             var line = lines[lineNum - 1];
@@ -574,7 +572,7 @@ function Floppy(unit_num) {
 
             // look for write protect flag
             if (/^write protect$/i.test(line)) {
-                writeProtected = 1;
+                writeProtected = true;
                 continue;
             }
 
@@ -689,7 +687,7 @@ function Floppy(unit_num) {
             }
             bitptr++; // skip over start bit
             var val = 0;
-            for(var n = 0; n < 8; n++) {
+            for (var n = 0; n < 8; n++) {
                 val |= (getBit(0) << n);
                 bitptr++;
             }
