@@ -604,13 +604,22 @@ var ccemu = (function () {
 
     function populateFloppyPulldown(id) {
         var disks = [
-            { label: 'BASIC Utilities', value: 'disks/BASIC_utilities.ccvf' },
-            { label: 'Blackjack',       value: 'disks/blackjack.ccvf'       },
-            { label: 'Disk Formatter',  value: 'disks/formatter.ccvf'       },
-            { label: 'Hangman',         value: 'disks/hangman.ccvf'         },
-            { label: 'Sampler',         value: 'disks/sampler.ccvf'         },
-            { label: 'Sharks',          value: 'disks/sharks.ccvf'          },
-            { label: 'Swarms',          value: 'disks/swarms.ccvf'          }
+            { label: 'Air Raid',        value: 'disks/airraid.ccvf'             },
+            { label: 'Alien Invasion',  value: 'disks/alien_invasion_v1.4.ccvf' },
+            { label: 'Blackjack',       value: 'disks/blackjack.ccvf'           },
+            { label: 'Castle Quest',    value: 'disks/chip_33.ccvf'             },
+            { label: 'Chess',           value: 'disks/chess.ccvf'               },
+            { label: 'Chip #91',        value: 'disks/chip_91.ccvf'             },
+            { label: 'Chip #106',       value: 'disks/chip_106.ccvf'            },
+            { label: 'Chomp (Pacman)',  value: 'disks/chomp.ccvf'               },
+            { label: 'Hangman',         value: 'disks/hangman.ccvf'             },
+            { label: 'Lunar Lander',    value: 'disks/lunar_lander.ccvf'        },
+            { label: 'Othello',         value: 'disks/othello.ccvf'             },
+            { label: 'Sampler',         value: 'disks/sampler.ccvf'             },
+            { label: 'Sharks',          value: 'disks/sharks.ccvf'              },
+            { label: 'Startrek',        value: 'disks/startrek.ccvf'            },
+            { label: 'Swarms',          value: 'disks/swarms.ccvf'              },
+            { label: 'Various Game',    value: 'disks/taylor_games.ccvf'        }
         ];
         var pd = $(id);
         var opttag = '<option></option>';

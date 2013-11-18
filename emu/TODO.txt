@@ -1,45 +1,242 @@
 ----- emulator changes list -----
 
-* reverted revealing prototype pattern; the ".call(this, ..." stuff was ugly
+* added selection between v6.78 ROMs and v8.79 ROMs
+
+* added lowercase mod option
+
+* after consulting real hardware, the emulator's cursor now blinks in phase
+  with blinking text (it used to blink out of phase).
+
+* the 5501 model had a debugging assertion which was accidentally left
+  enabled.  The program CARACE.PRG would write to the serial port tx data
+  register, triggering the assertion.
+
+* as before ctrl-clicking on either of the CD0 or CD1 labels will allow
+  saving the virtual disk image locally.  Modern browsers (IE10+, any
+  recent Firefox, Chrome, Safari, or webkit-based Opera) will now present
+  the file to save in a more polished manner, using the File API.  On the
+  Mac platform, alt-click is used instead of ctrl-click.
+
+* the emulator would assert if a program attempted to write to an empty
+  drive.  this should now be fixed (no assertion).
+
+* changed the virtual disk image format, as the previous code made the wrong
+  assumption about the start/stop/gap bit polarity.  now the emulator matches
+  what is on a real disk (as was always the intention)
+
+* removed sector-level virtual disk image format support.  now only
+  track-level (bit level) is supported.
+
+* the formatting program FMTCD1.PRG on taylor#7.ccvf used an unusual
+  disk r/w head stepping pattern, which the emulator didn't handle.
+  now it works. It also used to pop up an alert, which is now suppressed.
 
 * CPU accesses to the video RAM in the range of 0x6000 to 0x6FFF take priority
   over video generation, but accesses in the range of 0x7000 to 0x7FFF give
   CPU lower priority, meaning it can access that range only during horizontal
   blanking.  Previously, this detail was ignored.
 
-* list other changes here so I don't forget
+* the 32x8 timing PROM emulation has been removed, as real hardware
+  didn't populate it and instead used a mask-ROM version of the 5027
+  CRT controller to establish timing.  as a result, reading from the
+  non-populated area has a surprising result: INP(P) returns P, because
+  nothing drives the bus, and residual capacitance retains the last value
+  driven on the bus, namely the 2nd byte of the "IN #" 8080 instruction.
+
+* related to the previous change, the compucolor doesn't select the 5027
+  in IN instructions, so the bus floats.  Therefore IN in the range of
+  0x60 to 0x7F returns the address value.
+
+* reverted revealing prototype pattern; the ".call(this, ...)" stuff was ugly
+
+* minor code changes, such as using "for (" uniformly, and removing the
+  occasional "for(".
 
 ----- emulator TODO list -----
 
-add support for 8.79:
-   -add a global bit indicating model number
-   -expose some UI way of setting model number
-        changing it forces a reset of the emu
-   -floppy.js
-        change the track stepping behavior based on model
-        change the track limit to be 82 instead of 41
-        have a function to map physTrack to logicalTrack
-            based on model.  6.78 -> 1:1, 8.79 -> /2
-        the 8.79 bios sets phase=1 before pounding 84 steps,
-            which means track 0 should end up being phase=1
-   ?on page 5.28 of the maintenance manual, the three stepper phase control
-    bits go through a 74LS138 to ensure only one phase is driven at a time.
-    perhaps it should be emulated, just in case.  !step0 (bit 0) goes to
-    74LS138 "A" input; !step1 (bit 1) goes to "B"; !step2 (bit 2) goes to "C".
-    The actual phase 0 is driven from !Y6 (110); phase 1 is driven from
-    !Y5 (101); phase 2 is driven from !Y3 (011).  Anything else produces no
-    driven phase.
+add sound, joystick?
+-------------------------- soundware research notes --------------------------
+CALL(0) -- activates soundware device
+CALL(1) -- scrolling patch
+CALL(2) -- gets a character from the keyboard
+"The call function converts the argument into a 2 byte integer and stores
+the result in the 8080's D and E registers.  Then CALL 33282 (0x8202) is
+performed.  Upon return, the 2 byte value in DE is returned.  HL must be
+preserved, but the other regs can be trashed." (paraphrased from programmer's
+manual, pdf page 61)
+PATCH.BAS modifies 33283,33284 to contain TM+8, where TM=65335.  Thus the
+CALL ends up jumping to 65343 = 0xFF3F
 
-add support for lower case:
-   -add a global bit upper/lower case
-   -expose some UI means of toggling upper/lower case
-   -the crt code needs to generate another glyph map for lower case
-   -the crt code needs to select between maps based on upper/lower case
+"SOUNDI.BAS" supplies information on how to use the thing.
+    LO = 65336
+    TM,TM+1   hold  parameter P   -- pitch           = 65336 = 0xff38
+    TM+2,TM+3 hold  parameter D   -- duration        = 65338 = 0xff3a
+    TM+4      holds parameter NS  -- number of steps = 65340 = 0xff3c
+    TM+5      holds parameter SS1                    = 65341 = 0xff3d
+    TM+6      holds parameter SS2                    = 65342 = 0xff3e
+    SS1 and SS2 are signed 8b values.
+    SS1 and SS2 are added to PITCH and probably DURATION, respectively,
+      after each step is completed
 
-Figure out some mechanism for saving modified floppy images
-    - chrome allows Filewriter API, but no others (yet)
-    - allow user to specify a username and disk name and host it for them?
-    ? https://github.com/eligrey/FileSaver.js/
+Soundware "PATCH.BAS" sets up the machine language patch.
+
+    ff3f: 7b     LD A,E         MOV A,E        <<<< entry point of CALL()
+    ff40: fe00   CP 0           CPI 0
+    ff42: c2b0ff JP NZ,ffb0     JNZ 0FFB0H
+
+    // CALL(0) handler
+    ff45: 1e08   LD E,8         MVI E,8H       <<<< tms5501 command, int enable
+    ff47: f3     DI             DI             ; interrupts affect sound timing
+    ff48: 3a3dff LD A,(ff3d)    LDA 0FF3DH
+    ff4b: 57     LD D,A         MOV D,A        ; D holds SS1
+    ff4c: 3a3eff LD A,(ff3e)    LDA 0FF3EH
+    ff4f: fe00   CP 0           CPI 0
+    ff51: c258ff JP NZ,ff58     JNZ 0FF58H     >>
+    ff54: 7a     LD A,D         MOV A,D
+    ff55: 323eff LD (ff3e),A    STA 0FF3EH     ; save ss2
+>>  ff58: 2a38ff LD HL,(ff38)   LHLD 0FF38H    ; get pitch
+    ff5b: 2268ff LD (ff68),HL   SHLD 0FF68H    ; modify LXI B,nnnn below
+    ff5e: 2a3aff LD HL,(ff3a)   LHLD 0FF3AH    ; get duration
+    ff61: 2265ff LD (ff65),HL   SHLD 0FF65H    ; modify LXI H,nnnn below
+
+    ff64: 214dff LD HL,ff4d     LXI H,0FF4DH <-------.    << nnnn gets replaced
+                                                     |
+    ff67: 013200 LD BC,32       LXI B,32H   <------. |    << nnnn gets replaced
+                                                   | |
+    ff6a: 0b     DEC BC         DCX C       <---.  | |
+    ff6b: 78     LD A,B         MOV A,B         |  | |
+    ff6c: b1     OR C           ORA C           |  | |
+    ff6d: c26aff JP NZ,ff6a     JNZ 0FF6AH  ----'  | |
+                                                   | |
+    ff70: 7b     LD A,E         MOV A,E            | |
+    ff71: ee02   XOR 2          XRI 2              | |    << toggles XMT
+    ff73: d304   OUT (4),A      OUT 4              | |    << TMS5501 command
+    ff75: 5f     LD E,A         MOV E,A            | |
+    ff76: 2b     DEC HL         DCX L              | |
+    ff77: 7c     LD A,H         MOV A,H            | |
+    ff78: b5     OR L           ORA L              | |
+    ff79: c267ff JP NZ,ff67     JNZ 0FF67H  -------' |
+                                                     |
+    ff7c: 3a3cff LD A,(ff3c)    LDA 0FF3CH           |    ; get NS (num steps)
+    ff7f: fe00   CP 0           CPI 0                |
+    ff81: ca9bff JP Z,ff9b      JZ 0FF9BH            |
+    ff84: 3d     DEC A          DCR A                |
+    ff85: 323cff LD (ff3c),A    STA 0FF3CH           |    ; decrement NS
+    ff88: 3a68ff LD A,(ff68)    LDA 0FF68H           |    ; get durlo
+    ff8b: 82     ADD A,D        ADD D                |    ; bump it by SS1
+    ff8c: 3268ff LD (ff68),A    STA 0FF68H           |    ; update durlo
+    ff8f: 3a3eff LD A,(ff3e)    LDA 0FF3EH           |    ; get SS2
+    ff92: 67     LD H,A         MOV H,A              |
+    ff93: 7a     LD A,D         MOV A,D              |    ; S1 again?
+    ff94: 323eff LD (ff3e),A    STA 0FF3EH           |    ; ah, toggle between S1 and S2
+    ff97: 54     LD D,H         MOV D,H              |
+    ff98: c364ff JP ff64        JMP 0FF64H   --------'
+
+    // reset parameters to default
+    ff9b: 323eff LD (ff3e),A    STA 0FF3EH   ; SS2 = 0
+    ff9e: 323bff LD (ff3b),A    STA 0FF3BH   ; DURHI = 0
+    ffa1: 3239ff LD (ff39),A    STA 0FF39H   ; PITCHHI = 0
+    ffa4: 3e0f   LD A,15        MVI A,0FH
+    ffa6: 323aff LD (ff3a),A    STA 0FF3AH   ; DURLO = 15
+    ffa9: 3e32   LD A,50        MVI A,32H
+    ffab: 3238ff LD (ff38),A    STA 0FF38H   ; PITCHLO = 50
+    ffae: fb     EI             EI
+    ffaf: c9     RET            RET
+
+    // test for E=1
+    ffb0: fe01   CP 1           CPI 1
+    ffb2: c2d5ff JP NZ,ffd5     JNZ 0FFD5H   >>>>> ffd5
+
+    // CALL(1) handler -- scrolling patch
+    ffb5: 210000 LD HL,0        LXI H,0H
+    ffb8: 0604   LD B,4         MVI B,4
+    ffba: 0e11   LD C,11        MVI C,11H    <-------.
+    ffbc: 118000 LD DE,80       LXI D,80H    <--.    |
+    ffbf: 19     ADD HL,DE      DAD D           |    |
+    ffc0: 7e     LD A,(HL)      MOV A,M         |    |
+    ffc1: 1180ff LD DE,ff80     LXI D,0FF80H    |    |
+    ffc4: 19     ADD HL,DE      DAD D           |    |
+    ffc5: 77     LD (HL),A      MOV M,A         |    |
+    ffc6: 23     INC HL         INX H           |    |
+    ffc7: 00     NOP            NOP             |    |
+    ffc8: 0d     DEC C          DCR C           |    |
+    ffc9: c2bcff JP NZ,ffbc     JNZ 0FFBCH   ---'    |
+    ffcc: 110800 LD DE,8        LXI D,8H             |
+    ffcf: 19     ADD HL,DE      DAD D                |
+    ffd0: 05     DEC B          DCR B                |
+    ffd1: c2baff JP NZ,ffba     JNZ 0FFBAH   --------'
+    ffd4: c9     RET            RET
+
+    // test for E=2
+    ffd5: fe02   CP 2           CPI 2        <<< ffb2
+    ffd7: c2edff JP NZ,ffed     JNZ 0FFEDH   >>> ffed (ret) (RNZ would have worked)
+
+    // CALL(2) handler -- get a keyboard character
+    ffda: f5     PUSH AF        PUSH PSW
+    ffdb: e5     PUSH HL        PUSH H
+    ffdc: c5     PUSH BC        PUSH B
+    ffdd: cd2400 CALL 24        CALL 24H
+    ffe0: c2ddff JP NZ,ffdd     JNZ 0FFDDH
+    ffe3: 5f     LD E,A         MOV E,A
+    ffe4: af     XOR A          XRA A
+    ffe5: 57     LD D,A         MOV D,A
+    ffe6: 32ff81 LD (81ff),A    STA 81FFH
+    ffe9: c1     POP BC         POP B
+    ffea: e1     POP HL         POP H
+    ffeb: f1     POP AF         POP PSW
+    ffec: c9     RET            RET
+    ffed: c9     RET            RET
+
+    some games used a "SOUNDWARE" unit which apparently plugged into the RS-232
+    port on the back of the machine.  "Miscellaneous Articles.pdf", page 6/55
+    shows "Internal Soundware" [RS232 AMP.] mod.  Apparently it is just one
+    of the interface signals toggling under software control, with a simple
+    RC filter driving a speaker.  The mod presented here uses a small integrated
+    amp for better sound.  The "brown" wire carrying "input" comes from the
+    serial port TXD signal (pin #3).  Note that the 1488 drives +V/-V; I'm not
+    sure what voltage the compucolor drives to the chip; probably +5/-5, because
+    I see +12V available, but not -12V.
+
+    box_1/joystick_sound.ccvf/SNDCHP.MAC has a routine, SND, which drives
+    data to a AY-3-8910 chip using ports 30H and 31H.  On the same disk,
+    SOUND.MAC seems to drive sound by toggling the BREAK line state of the
+    serial port.
+
+    # box_1/cm_0-4_paddle_games.ccvf has a program DOODLR.BAS.  It CALL(x)'s
+    # some machine lang routine to get paddle values, but it also does
+    #     L=INP(1) OR 251: IF L=251 then GOSUB 270:REM SWITCH #1
+    #     R=INP(1) OR 247: IF L=247 then GOSUB 290:REM SWITCH #2
+    # there are some other calls in there for making sounds and whatnot.
+    # action_soundware.ccvf/popshot.bas has more too.
+
+    # http://archive.org/stream/creativecomputing-1979-12/Creative_Computing_v05_n12_1979_December_djvu.txt
+    # 
+    # However, the programmer of the Soundware Software 
+    # told me that Soundware is more 
+    # accurate in pitch than hardware 
+    # generators because the tones are 
+    # timed off the TRS-80 crystal, and the 
+    # resolution is 16-bit. The bottom octave 
+    # is within 0.01 percent of exact pitch, he 
+    # says, and the top octave is only slightly 
+    # off, a little over two percent (enough to 
+    # be heard). 
+    #
+    # So that does seem to just be a low pass filter thing, and not
+    # the AY-whatever sound chip.
+
+    page 28 of "Miscellaneous Articles.pdf" talks about installing a bell.
+    It apparently is triggered by bit 6 of the parallel output port.
+
+    joystick_games_with_sound-front.ccvf has asm source file SWARE.SRC,
+    apparently a soundware driver.  It mentions the AY-3-8910 chip.  Study
+    the code and figure out what it is doing.  It does OUTs to ports 48 and 49
+    (0x30 and 0x31).  Hmm, wikipedia says the Intellivision used the same part.
+
+---------------------- end of soundware research notes ----------------------
+
+The capture disk in box_14/asm_programs.ccvf contains a bunch of different
+character sets expressed as lists of bytes.  could be useful.
 
 the emulator doesn't honor the disk write protection flag
     (just like the real hardware!)
@@ -51,15 +248,36 @@ cleanup (ever?):
     scope is particularly bad.
     http://www.adequatelygood.com/JavaScript-Module-Pattern-In-Depth.html
 
-any point in adopting more ES5 features?
-    [].forEach(), [].map(), set, get, etc
-    set and get are much slower than hand made set and get methods
+ccvfutil.py:
+  - add "add" command?  (import file from disk, save to file)
+        import <host filename> TO <cc filename and attributes>
+            binary file transfer
+            *.ccc gets tokenized
+        export <host filename> TO <cc filename and attributes>
+            binary file transfer
+  - BASIC Training for Compucolor Computers.pdf, page 184, gives some
+    suffixes for file types.  I don't know how universal these are,
+    but maybe ccvfutil can make use of this to know how to list files
+        .BAS - a BASIC program
+        .RND - a random access file
+        .DSP - a screen display which as been saved on disk
+        .ARY - an array which has been saved on disk
+        .DAT - a file of data which has been saved on disk
+        .LDA - a machine-code program created by the assembler
+        .PRG - a memory-image machine-code program
+        .SRC - an assembly language source program
+    Programming Colour Graphics.pdf, p 13 has similar info, but worth
+    reading as it has a few details not present above.
 
 page 5.20 of the maintenance manual talks about DRAM refresh.  It seems like a
 one-shot times out each 1 ms, and then 64 or 128 refresh cycles are performed.
 "refresh requires 32 us (64 us for 128 cycles) for completion."
 When the floppy is transferring data, 64 uS represents about five bit times.
 So refresh could add jitter of this magnitude during reads and writes.
+
+javascript modal boxes:
+    http://www.ericmmartin.com/projects/simplemodal-demos/
+    http://leanmodal.finelysliced.com.au/#
 
 Better browser support
     - FF 19,20
@@ -106,3 +324,177 @@ Better browser support
         - remote file access (at least to local disk) isn't working
           could be the cross domain policy thing
         - the disassembly isn't monospaced even though it is <pre>
+
+For cheat sheet:
+    Warm reset puts you in the CRT mode.  mention it in the about docs.
+    ESC K ESC E -> put back in scrolling mode
+    ESC X ESC E -> put it in page mode
+    ESC _ -> enter CRT mode
+    ESC E -> enter BASIC mode without erasing memory
+    ESC W -> enter BASIC mode after resetting
+    set fg color: ctrl+(FG ON/FLG OFF) then a color key, then ESC E
+    set bg color: ctrl+(BG ON/FLG ON) then a color key, then ESC E
+
+here is another i8080 javascript core -- looks pretty clean, and he
+has done some good testing (validation suite) on it:  not sure how
+it compares in performance.
+    https://github.com/begoon/i8080-js
+
+-------------------------------
+comments on tim shoppa's floppy disk images with compucolor programs:
+
+factor.ccc contains the line "MATA=ZER" which isn't the right dialect;
+           it also contains N$(I)=STR$(I)
+
+trek.ccc loads STTREK.PIC via FCS (line 110)
+    even commenting that out, TM (top of memory) is correctly computed
+    as 65535, but then other routines POKE to TM+2, TM+25, etc,
+    resulting in out of range errors.  OK, I've run into this on other
+    programs.  It is relying on being launched from a version of MENU.BAS
+    which has already poked some machine language patches into high memory
+    and adjusted the top-of-memory pointer.
+trekpic.cco is 2KB, and doesn't appear to have the attribute byte plane,
+    so it isn't usable.
+
+------------------------------------------------------------------------
+What do the FCS error messages report exactly?
+
+fcs.asm, the HANER: routine (handle error)
+    1. print error string  (control codes, then 'E')
+    2. print error string (eg, "VFY")
+    3. print space, then device name (eg, "CD")
+    4. print unit number  (eg, '00' for CD0)
+    5. print ':'
+    6. print function code
+    7. print block number
+    8. print cr/lf
+
+------------------------------------------------------------------------
+Floppy disk write timing debugging notes, in case I need to revisit it:
+
+(load hangman disk)
+PLOT 15,12
+ESC D
+REA 0 6000 80
+WRI 0 6000 80
+
+sometimes during verify, we find the target sector, but then when we
+try to find the data mark (0x5A), we read four 0xFF dummy bytes, but we
+were expecting no more than three.  figure it out!
+
+real locations:
+    55 @ 100
+    01 @ 110
+    00 @ 120
+    4a @ 130  << crc
+    93 @ 140  << crc
+    ff @ 150
+    ff @ 160
+    ff @ 170
+    5a @ 180
+
+read command:
+    trk 1, sec 0
+    gap found
+    55 @ 110
+    01 @ 120
+    00 @ 130
+    4a @ 140  << crc
+    93 @ 150  << crc
+    ff @ 160
+    ff @ 170
+    ff @ 180
+    5a @ 190
+These are all 10 bits later than real because the logging command happens
+at the end of the byte, not the start.  So far everything is as expected.
+
+write portion:
+    @22A0, read 2nd header CRC byte, at relative tick 0
+    @GH4 at relative tick 73
+    enable write mode at relative tick 300
+    writing stream of 3 bits
+    writing ff @ offset 182 at relative tick 395  (197 uS later, about 15 bits)
+    writing 5a @ offset 192
+The position reported by the write byte logger is at the start of the byte.
+It is certainly later than allowed.
+
+verify step after the write:
+    trk 1, sec 0
+    gap found
+    55 @ 110
+    01 @ 120
+    00 @ 130
+    4a @ 140  << crc
+    93 @ 150  << crc
+    ff @ 160
+    ff @ 170
+    ff @ 180
+    ff @ 192   << !there it is, the bonus ff, and it comes late
+    5a @ 202
+Again, the reads report curPosition at the end of the byte, so this is
+consistent with what the write portion claims.
+
+WHY is it we read the header crc, switch to write mode within 15 bits, but
+somehow we have skipped over three FF bytes (30 bits) before writing the
+extra FF byte?
+
+Timeline:
+    read last CRC in RBYTEC from @229D
+    35 ticks + CRC which IIRC is about 180 ticks
+    checking crc residue is 0: 19 ticks
+    so far we are around 235 ticks to get to GH1
+    about 62 ticks to get to GH4, a total of 297 ticks
+what does the log say?
+    T0:: CD0: offset=150 got byte 93 framing=0
+    @22A0: read header 2nd crc byte, T=219
+    @GH4: found sector, T=292
+    2 MHz / 76800 = 26.04 ticks per bit on the disk
+    delta = 11.2 bits.  the head should be just at the 2nd bit of the
+    2nd FF dummy byte, at curPosition = 150+11.2 = 151.2
+
+After adding more logging:
+~209 ticks from when the floppy read routine reports the end of the 2nd crc byte
+  until 22A0 executes, which is 8 bits.
+    @22A0: read header 2nd crc byte, T=0, offset=160
+    @GH4: found sector, T=73
+    CD0: enabling write mode @ T=300
+    @23B4: writing dummy byte FF, T=341, offset=179
+
+Should be:
+end of 2nd crc byte: T=0     ->  0   bits  ->  150
+              @22A0: T=209   ->  8.0 bits  -> 
+               @GH4: T=282   -> 10.8 bits  -> 
+       enable write: T=509   -> 19.6 bits  -> 
+        write dummy: T=550   -> 21.2 bits  ->  171.2
+
+As soon as the 2nd crc byte is reported, by readByteCallback(),
+it calls scheduleReadByte, which advances time by 10 ticks, even
+though logically it won't happen for 10 ticks.  So let's advance it
+during readByteCallback.
+
+------------------------------------------------------------------------
+
+This is the list of floppy disk images released with the emulator, along
+with where they came from plus any special notes:
+    compucolor #1/airraid.ccvf
+    compucolor #1/blackjack.ccvf
+    compucolor #2/chess.ccvf
+    compucolor #1/hangman.ccvf
+    compucolor #3/lunar_lander.ccvf
+    compucolor #2/othello.ccvf
+    compucolor #2/sampler.ccvf
+    compucolor #1/sharks.ccvf
+    compucolor #1/swarms.ccvf
+    compucolor #2/startrek.ccvf
+    box2/chomp.ccvf -- pacman clone
+    box_16/alien_inv.ccvf -- good space invaders clone by david suits, +LIFE
+        >>> deleted off adventure game and some other crap
+    white-box-missing-top/taylor_vol_2.ccvf
+        contains seawar, pong, super startrek
+           startrek is the compucolor version, with bug fixes and sound
+    box_8/chip_33.ccvf -- castle quest
+    box_3/chip_91.ccvf -- battleship, football, zilch, othello (fast)
+    box_12/chip_106.ccvf has breakout, mastermind, j-checkers, wheel of fortune
+
+------------------------------------------------------------------------
+vim:et:ts=4
