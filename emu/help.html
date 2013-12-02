@@ -24,7 +24,7 @@
         border-radius:5px;
     }
 
-    .romdiv {
+    .romdiv-NEUTER {
         display:none;
     }
 </style>
@@ -50,6 +50,7 @@ of the dedicated keys that the Compucolor had (where is the "cyan" key?)
     <li><a href="#virtual">Virtual Keyboard</a></li>
     <li class="romdiv"><a href="#ROMs">ROM Versions</a></li>
     <li><a href="#charset">Character Set</a></li>
+    <li><a href="#soundware">Soundware</a></li>
     <li><a href="#compatibility">Browser Compatibility</a></li>
     <li><a href="#random">Other Random Notes</a></li>
     <li><a href="#missing">Missing Fetures</a></li>
@@ -359,6 +360,24 @@ The pulldown labeled "Character set" allows choosing between the standard
 and lower case character sets.
 </p>
 
+<h2><a id="soundware">Soundware</a></h2>
+
+<p>
+Soundware was a popular third-party hardware add-on to produce audio.
+This checkbox will not appear unless your browser supports the modern
+Audio API.  It was a pretty primitive affair, where the serial port tx
+data line was sent to a small amplified speaker, and by means of toggling
+that tx data line, various simple tones could be produced.
+</p>
+
+<p>
+Because of the real-time nature of audio production, there is an inherent
+tension between buffering a lot of samples (to make sure the audio stream
+is never interrupted) and buffering just enough samples (to keep the latency
+low).  With browser technology it isn't possible to strike a great balance,
+so the audio may be a bit laggy at times and a bit choppy other times.
+</p>
+
 <div class="romdiv">
 <h2><a id="ROMs">ROM Versions</a></h2>
 
@@ -378,9 +397,10 @@ the v6.78 ROMs.  v8.79 doesn't buy much but incompatibility.
 
 <h2><a id="compatibility">Browser Compatibility</a></h2>
 
-<p><b>Firefox 19:</b>
+<p><b>Firefox 25:</b>
 The emulator has primarily been developed and tested on recent builds of the
-Firefox browser and is known to work well there.
+Firefox browser and is known to work well there.  Earlier versions of Firefox
+supported a now-obsolete Audio API, so they will not get Soundware emulation.
 </p>
 
 <p><b>IE 10:</b>
@@ -389,6 +409,7 @@ The emulator has received light testing with this browser and mostly works.
 
 <ul>
     <li>IE 10 doesn't support fullscreen mode</li>
+    <li>IE 10 doesn't support Soundware emulation</li>
 </ul>
 
 <p><b>IE 9:</b>
@@ -396,7 +417,8 @@ The emulator has received light testing with this browser and mostly works.
 </p>
 
 <ul>
-    <li>IE9 doesn't support fullscreen mode</li>
+    <li>IE 9 doesn't support fullscreen mode</li>
+    <li>IE 9 doesn't support Soundware emulation</li>
 </ul>
 
 <p><b>IE 8 and earlier:</b>
@@ -441,11 +463,12 @@ Reportedly Safari 6.x has improved things in regard to the problems below.
         is available, it doesn't work.  Perhaps Safari 6.x changes that.</li>
 </ul>
 
-<p><b>Opera v12.14:</b>
+<p><b>Opera v12.16:</b>
 Light testing shows that it mostly works, save these few problems:
 </p>
 <ul>
-    <li>Opera doesn't support the fullscreen API</li>
+    <li>Opera 12 doesn't support the fullscreen API</li>
+    <li>Opera 12 doesn't support Soundware emulation</li>
     <li>Attempting to execute one of the programs from the pulldown menu
         will result in an error -- instead, using the "Read File" button,
         navigate to the "sources/" folder in the same directory where the
@@ -472,11 +495,7 @@ Light testing shows that it mostly works, save these few problems:
 <h2><a id="missing">Missing features</a></h2>
 
 <ul>
-    <li>The serial port isn't emulated.  I don't plan on doing so.
-    </li>
-    <li>The Soundware card was a popular add-on for making noises for
-        games and such.  I'm considering adding the feature.
-    </li>
+    <li>The serial port isn't emulated.  I don't plan on doing so.</li>
 </ul>
 
 

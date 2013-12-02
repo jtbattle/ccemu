@@ -40,6 +40,14 @@
           <option value="Lower case">Lower case
       </select>
 
+      <div class="soundware">
+	  <label>
+	      <input type="checkbox" id="soundware_cb">
+	      Enable soundware
+	  </label>
+          <p id="soundware_debug"></p>
+      </div>
+
       <div class="romdiv">
 	  <p>ROM version:</p>
 	  <select id="romsel">
@@ -182,6 +190,8 @@
 
 </div>
 <script type="text/javascript" src="js/jquery-1.9.1.js"></script>
+<script type="text/javascript" src="js/AudioContextMonkeyPatch.js"></script>
+<script type="text/javascript" src="js/FileSaver.js"></script>
 <script type="text/javascript" src="js/js8080.js"></script>
 <script type="text/javascript" src="js/crt.js"></script>
 <script type="text/javascript" src="js/keybrd.js"></script>
@@ -190,7 +200,7 @@
 <script type="text/javascript" src="js/scheduler.js"></script>
 <script type="text/javascript" src="js/tms5501.js"></script>
 <script type="text/javascript" src="js/smc5027.js"></script>
+<script type="text/javascript" src="js/audio.js"></script>
 <script type="text/javascript" src="js/roms.js"></script>
-<script type="text/javascript" src="js/FileSaver.js"></script>
 <script type="text/javascript" src="js/ccemu.js"></script>
 </body>

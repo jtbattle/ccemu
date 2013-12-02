@@ -28,7 +28,7 @@
 
 // option flags for jslint:
 /* global console */
-/* global ccemu, cpu, keybrd, floppy */
+/* global ccemu, cpu, keybrd, floppy, audio */
 /* global assert, floppy_dbg */
 
 var tms5501 = (function () {
@@ -169,6 +169,8 @@ var tms5501 = (function () {
         floppy[0].select(floppy0Selected(), floppy_write, floppy_stepper);
         floppy[1].select(floppy1Selected(), floppy_write, floppy_stepper);
     }
+
+    function serialSelected()   { return ((outport >> 4) & 3) === 0; }
     function keyboardSelected() { return ((outport >> 4) & 3) === 0; }
     function floppy0Selected()  { return ((outport >> 4) & 3) === 1; }
     function floppy1Selected()  { return ((outport >> 4) & 3) === 2; }
@@ -194,6 +196,8 @@ var tms5501 = (function () {
                 floppy[0].txData(txdata2);
             } else if (floppy1Selected()) {
                 floppy[1].txData(txdata2);
+            } else if (serialSelected()) {
+                audio.txData(txdata2);
             }
         }
 
@@ -312,10 +316,12 @@ var tms5501 = (function () {
                 // except tx buffer empty is set high
                 intStatus = 0x20;  // tx buffer empty interrupt
             }
-            if (value & 0x03 === 0x02) {
-                // serial tx break
-                // FIXME: not modeled
-                assert(!debugging, 'serial tx requests a line break');
+            // because the serial port isn't modeled, the break bit is
+            // mostly ignored, but if we are modeling the soundware hardware,
+            // which hangs on the TXD serial port bit, we need to let it know
+            // this state might have changed.
+            if (serialSelected()) {
+                audio.breakEvent((value >> 1) & 1);
             }
             // bit 2: interrupt 7 select
             // FIXME: I assume this is only programmed to 0 (use timer #5)
@@ -374,6 +380,8 @@ var tms5501 = (function () {
                     floppy[0].txData(txdata2);
                 } else if (floppy1Selected()) {
                     floppy[1].txData(txdata2);
+                } else if (serialSelected()) {
+                    audio.txData(txdata2);
                 }
             }
             checkInterruptStatus();

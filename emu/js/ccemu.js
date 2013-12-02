@@ -33,13 +33,14 @@
 //     crt       -- colorcomputer display
 //     scheduler -- an 8080-tick based scheduler
 //     floppy    -- two floppy disk drives
+//     audio     -- soundware emulation
 //     ccemu     -- the master controller:
 //                      all webpage requests go to this object
 
 // option flags for jslint:
 /* global console, alert */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
-/* global system_rom_6_78, system_rom_8_79 */
+/* global audio, system_rom_6_78, system_rom_8_79 */
 /* global floppy_dbg, saveAs */
 
 // GLOBALS
@@ -198,6 +199,9 @@ var ccemu = (function () {
         smc5027.reset();     // video timing controller
         keybrd.reset();      // keyboard
         floppy.forEach(function(elem) { elem.reset(); });
+        if (browserSupports.audio) {
+            audio.reset();   // soundware card
+        }
 
         // [[[RESET]]] from the autotyper input text can force a reset,
         // but we don't want that to also kill the autotyper
@@ -243,6 +247,18 @@ var ccemu = (function () {
         return tickCount;
     }
 
+    // if the audio buffer is underrunning, passing val=1 will cause
+    // us to run a few percent more cycles per time slice than we should.
+    // passing val=-1 means we have too many samples and we are getting
+    // laggy, so we should reduce the number of cycles we are producing.
+    // val=0 means schedule as normal
+    var audioBoostFactor = 1.00;
+    function audioBoostCpu(val) {
+        audioBoostFactor = (val < 0) ? 0.98
+                         : (val > 0) ? 1.02
+                                     : 1.00;
+    }
+
     function doCpuTimeslice() {
 
         // if we are running the autotyper, speed up the cpu in order
@@ -251,8 +267,14 @@ var ccemu = (function () {
         // 2.0 instead of 1.0 because timeFractionBusy, for unknown reasons,
         // indicates more CPU utilization than is real
         var boost = 2.0 / timeFractionBusy;
-        var sliceClkLimit = (autotyping) ? boost*cpuClocksPerTimeslice :
-                                                 cpuClocksPerTimeslice;
+
+        // if audio is enabled, we have a realtime constraint on the
+        // production of audio samples, which is more important that
+        // precise cpu speed regulation
+        var effCpuClocksPerTimeslice = cpuClocksPerTimeslice * audioBoostFactor;
+
+        var sliceClkLimit = (autotyping) ? boost*cpuClocksPerTimeslice
+                                         : effCpuClocksPerTimeslice;
 
         var tStart = realtime();
         var tickLimit = tickCount + sliceClkLimit;
@@ -728,6 +750,11 @@ var ccemu = (function () {
             setROMidx(index);
             ccemu.hardReset();
         });
+        if (browserSupports.audio) {
+            $('#soundware_cb').click(function () {
+                audio.enable(this.checked);
+            });
+        }
         $('#run_debug').click(function () {
             runOrDebug('toggle');
             $('#run_debug').blur();
@@ -845,6 +872,9 @@ var ccemu = (function () {
             (e.mozRequestFullScreen !== undefined)   ||
             (e.webkitRequestFullScreen !== undefined);
 
+        // audio api
+        browserSupports.audio = window.hasOwnProperty('AudioContext');
+
         // blob
         try {
             browserSupports.blob = !!new Blob();
@@ -932,9 +962,15 @@ var ccemu = (function () {
         $('#ssizesel').val('1.00');
         $('#chsetsel').val('Standard');
         $('#romsel').val('v6.78');
+        $('#soundware_cb').prop('checked', false);
 
         // connect functions up to html elements
         bindEvents();
+
+        // show it only if it is supported
+        if (browserSupports.audio) {
+            $('.soundware').show();
+        }
 
         // optional ROM version interface
         if (enable_rom_selection) {
@@ -993,6 +1029,7 @@ var ccemu = (function () {
         'wr':            wr,
         'hardReset':     hardReset,
         'warmReset':     warmReset,
+        'audioBoostCpu': audioBoostCpu,
         'debugging':     debugging
     };
 

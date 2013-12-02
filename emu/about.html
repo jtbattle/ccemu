@@ -18,7 +18,7 @@
 <div id="wrapper">
 
 <h1>About the Compucolor II Emulator</h1>
-<p class="version">Version 2013.11.16</p>
+<p class="version">Version 2013.12.01</p>
 
 <p>
 This emulator is written in javascript, and makes use of some fairly
@@ -50,6 +50,9 @@ the work and encouragement of others.
         which emulates a running CP/M system right in your browser,
         including a TTY and floppy disks.
     </li>
+    <li>A shim to allow using the javascript Audio API across a range
+        of browsers came from Chris Wilson (AudioContextMonkeyPatch.js).
+    </li>
     <li>The snazzy animation to make the debugger window open up and
         close, plus some behind the scenes logic to position elements
         when the virtual Compucolor II CRT is resized was done via the popular
@@ -67,6 +70,17 @@ the work and encouragement of others.
         size made me realize that perhaps it wasn't as big of a job as
         I had feared; I began writing this emulator a couple days later.
     </li>
+</ul>
+
+<h3>Version 2013.12.01</h3>
+
+<ul class="changes">
+    <li>Added emulation for the Soundware audio device</li>
+    <li>Exposed a pull-down to select the CCII ROM version</li>
+    <li>The URI can specify initial disks, ROM version, and Auto key press</li>
+    <li>Added a blank disk to the pull-down list of packaged disk images</li>
+    <li>Added back support for sector-level virtual floppy disk images</li>
+    <li>A few general code cleanups</li>
 </ul>
 
 <h3>Version 2013.11.16</h3>

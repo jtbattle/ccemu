@@ -90,6 +90,14 @@ div#controls p
  * they are not inside the element which fullscreen was applied to */
 :-moz-full-screen div#drives { display:none; }
 
+/* ====================== soundware checkbox ====================== */
+
+div.soundware
+{
+    margin-top:5px;
+    margin-bottom:5px;
+}
+
 /* ====================== virtual keyboard interface ====================== */
 
 #virtualkeyboard 
@@ -160,6 +168,12 @@ span#CD0, span#CD1
 
 /* hide by default: is it worth the complexity? */
 .romdiv
+{
+    display:none;
+}
+
+/* hide by default: enable it only if AudioContext is supported */
+.soundware
 {
     display:none;
 }
