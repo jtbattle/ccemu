@@ -486,4 +486,6 @@ var tms5501 = (function () {
 
 }());  // tms5501
 
+tms5501 = tms5501;  // keep jshint happy
+
 // vim:et:sw=4:

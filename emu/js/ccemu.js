@@ -268,9 +268,9 @@ var ccemu = (function () {
 
             if (showTiming) {
                 var percent = (100*timeFractionBusy).toFixed(0).toString();
-                while (percent.length < 3) { percent = " " + percent; }
-                percent = "Emulator consumes <tt>" + percent +
-                          "%</tt> of your CPU";
+                while (percent.length < 3) { percent = ' ' + percent; }
+                percent = 'Emulator consumes <tt>' + percent +
+                          '%</tt> of your CPU';
                 setTimeReport(percent);
             }
         }
@@ -398,7 +398,7 @@ var ccemu = (function () {
         var di = $('#diskinput' + unit);
         var ds = $('#disksel' + unit);
         var val = ds[0].value;
-        if (val === "empty") {
+        if (val === 'empty') {
             floppy[unit].removeFloppy();
         } else if (val === 'local') {
             // activate the hidden local file browser control
@@ -415,10 +415,10 @@ var ccemu = (function () {
         if (text !== undefined) {
             if (browserSupports.fileApi) {
                 // offer save-as dialog
-                var term = text.map(function(elem) { return elem + "\n"; });
+                var term = text.map(function(elem) { return elem + '\n'; });
                 var blob = new Blob(term, {type: 'text/plain',
                                            endings: 'native'});
-                saveAs(blob, "diskimage.ccvf");
+                saveAs(blob, 'diskimage.ccvf');
             } else {
                 // klunky: open window containing the text
                 var win = window.open('', 'diskwindow',
@@ -453,8 +453,10 @@ var ccemu = (function () {
             // keyboard events can activate it inadvertently
             $('#disksel' + unit).blur();
             floppy[unit].insertFloppy(responseTxt);
-        }, 'html')
-         .fail(function () { alert('File failed to load!'); });
+        }, 'text')
+         .fail(function (jqXHR, textStatus) {
+            alert('File ' + fileURL + ' failed to load! status=' + textStatus);
+        });
     }
 
     function setTimeReport(msg) { $('#runnmsg').html(msg); }
@@ -624,7 +626,7 @@ var ccemu = (function () {
         var pd = $(id);
         var opttag = '<option></option>';
         pd.append($(opttag).val('prompt').text('Select a disk...'));
-        // FIXME: make this conditional:
+        // FIXME: make this conditional: show it only if the drive is occupied
         if (1) {
             pd.append($(opttag).val('empty').text('--empty--'));
         }
@@ -646,9 +648,9 @@ var ccemu = (function () {
             // detect when we exit fullscreen mode so we can set the choice
             // box back to what it was before entering fullscreen mode
             if (document.addEventListener !== undefined) {
-                var evn = (e.requestFullScreen)    ? "fullscreenchange" :
-                          (e.mozRequestFullScreen) ? "mozfullscreenchange" :
-                                                     "webkitfullscreenchange";
+                var evn = (e.requestFullScreen)    ? 'fullscreenchange' :
+                          (e.mozRequestFullScreen) ? 'mozfullscreenchange' :
+                                                     'webkitfullscreenchange';
                 document.addEventListener(evn, function () {
                     // there is some confusion about how to spell it!
                     var fullscreenMode = document.fullscreenElement       ||
@@ -669,55 +671,54 @@ var ccemu = (function () {
         // tie buttons to events
         $('#hardreset').click(function () {
             hardReset();
-            $('#hardreset').blur();
+            this.blur();
         });
         $('#warmreset').click(function () {
             warmReset();
-            $('#warmreset').blur();
+            this.blur();
         });
         $('#auto').click(function () {
             keybrd.forceKey('auto', true, true);
-            $('#auto').blur();
+            this.blur();
         });
         $('#fileinput').change(autorunLocalFile);
         $('#filesel').change(function () {
-            var val = $('#filesel')[0].value;
-            if (val === "local") {
+            var val = this.value;
+            if (val === 'local') {
                 // activate the hidden local file browser control
                 $('#fileinput').click();
-            } else if (val !== "prompt") {
+            } else if (val !== 'prompt') {
                 autotypeRemoteFile(val);
             }
-            $('#filesel')[0].selectedIndex = 0;
-            $('#filesel').blur();
+            this.selectedIndex = 0;
+            this.blur();
         });
+        function make_diskInputHandler(n) { return function () { diskInput(n); }; }
+        function make_diskPickHandler(n)  { return function () { diskPick(n);  }; }
+        function make_diskSaveHandler(n)  {
+            return function (evt) {
+                if ((navigator.platform === 'MacIntel' && evt.altKey) ||
+                    (navigator.platform !== 'MacIntel' && evt.ctrlKey)) {
+                    diskDump(n);
+                }
+            };
+        }
         for (var n = 0; n < numFloppies; n++) {
-            $('#diskinput' + n).change( (function (i) {
-                return function () { diskInput(i); };
-            })(n));
-            $('#disksel' + n).change( (function (i) {
-                return function () { diskPick(i); };
-            })(n));
-            $('#drive' + n).click( (function (i) {
-                return function (evt) {
-                    if ((navigator.platform === "MacIntel" && evt.altKey) ||
-                        (navigator.platform !== "MacIntel" && evt.ctrlKey)) {
-                        diskDump(i);
-                    }
-                };
-            })(n));
+            $('#diskinput' + n).change(make_diskInputHandler(n));
+            $('#disksel' + n).change(make_diskPickHandler(n));
+            $('#drive' + n).click(make_diskSaveHandler(n));
         }
         $('#ssizesel').change(function () {
-            var index = $('#ssizesel')[0].selectedIndex;
-            var val = $('#ssizesel')[0].value;
+            var index = this.selectedIndex;
+            var val = this.value;
             setScreenSize(index, val);
         });
         $('#chsetsel').change(function () {
-            var index = $('#chsetsel')[0].selectedIndex;
+            var index = this.selectedIndex;
             setCharacterset(index);
         });
         $('#romsel').change(function () {
-            var index = $('#romsel')[0].selectedIndex;
+            var index = this.selectedIndex;
             setROMidx(index);
         });
         $('#run_debug').click(function () {
@@ -840,7 +841,7 @@ var ccemu = (function () {
         // blob
         try {
             browserSupports.blob = !!new Blob();
-        } catch(e) {
+        } catch (e) {
             browserSupports.blob = false;
         }
     }
@@ -855,7 +856,8 @@ var ccemu = (function () {
             system_rom = system_rom_8_79;
             stepper_phases = 4;
         } else {
-            alert("ERROR: setROMVersion called with " + name);
+            alert('ERROR: setROMVersion called with ' + name);
+            name = 'v6.78';
             system_rom = system_rom_6_78;
             stepper_phases = 3;
         }
@@ -891,8 +893,8 @@ var ccemu = (function () {
         // are never canceled
         var displayPeriod = Math.floor(CPU_FREQ / 30);
         var tms5501Period = Math.floor(CPU_FREQ * 64 / 1000000);
-        scheduler.periodic(displayPeriod, function () { crt.vsync(); }, "display");
-        scheduler.periodic(tms5501Period, function () { tms5501.tick64us(); }, "5501");
+        scheduler.periodic(displayPeriod, function () { crt.vsync(); }, 'display');
+        scheduler.periodic(tms5501Period, function () { tms5501.tick64us(); }, '5501');
 
         // set up the pulldown lists
         populateFilePulldown('#filesel');

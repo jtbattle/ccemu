@@ -397,4 +397,6 @@ var crt = (function () {
 
 }());  // crt
 
+crt = crt;  // keep jshint happy
+
 // vim:et:sw=4:

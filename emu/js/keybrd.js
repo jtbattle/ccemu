@@ -789,4 +789,6 @@ var keybrd = (function () {
 
 }());  // keybrd
 
+keybrd = keybrd;  // keep jshint happy
+
 // vim:et:sw=4:

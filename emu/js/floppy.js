@@ -934,6 +934,10 @@ function Floppy(unit_num) {
     };
 }
 
+// make jshint shut up about 'Floppy is defined but never used'
+var foo = Floppy;
+foo = foo;
+
 //============================================================================
 // debugging utility
 //============================================================================

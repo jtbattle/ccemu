@@ -169,4 +169,6 @@ var smc5027 = (function () {
 
 }());  // smc5027
 
+smc5027 = smc5027;  // keep jshint happy
+
 // vim:et:sw=4:
