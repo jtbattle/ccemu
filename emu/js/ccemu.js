@@ -46,6 +46,10 @@
 var cpu,
     floppy = [];
 
+// optional UI features
+var enable_debug_interface = 0;   // simple 8080 debug monitor
+var enable_rom_selection = 1;     // default v6.78 vs late v8.79 ROMs
+
 //============================================================================
 // emu core
 //============================================================================
@@ -66,6 +70,8 @@ var ccemu = (function () {
     var browserSupports = {};
 
     var numFloppies = 2;
+
+    var cur_system_rom;
 
     // --------------------------- constants --------------------------
 
@@ -574,7 +580,6 @@ var ccemu = (function () {
         $('#romsel').blur();
         var name = (idx === 0) ? 'v6.78' : 'v8.79';
         setROMVersion(name);
-        ccemu.hardReset();
     }
 
     function populateFilePulldown(id) {
@@ -721,6 +726,7 @@ var ccemu = (function () {
         $('#romsel').change(function () {
             var index = this.selectedIndex;
             setROMidx(index);
+            ccemu.hardReset();
         });
         $('#run_debug').click(function () {
             runOrDebug('toggle');
@@ -862,6 +868,12 @@ var ccemu = (function () {
             system_rom = system_rom_6_78;
             stepper_phases = 3;
         }
+
+        if (system_rom === cur_system_rom) {
+            // nothing has changed
+            return;
+        }
+
         for (var i = 0; i < system_rom.length; ++i) {
             wrUnsafe(i, system_rom[i]);
         }
@@ -869,6 +881,9 @@ var ccemu = (function () {
         floppy.forEach(function(elem) {
             elem.setStepperPhases(stepper_phases);
         });
+
+        // set index in pulldown
+        $('#romsel').val(name);
     }
 
     // this is called when the DOM is completely loaded,
@@ -888,7 +903,6 @@ var ccemu = (function () {
         }
         crt.init();
         smc5027.init();
-        setROMVersion('v6.78');
 
         // set up period events -- return objects are ignored because they
         // are never canceled
@@ -914,15 +928,23 @@ var ccemu = (function () {
         // connect functions up to html elements
         bindEvents();
 
-        // change this to "show()" if you want to allow selecting different
-        // ROM versions
-        $('.romdiv').hide();
+        // optional ROM version interface
+        if (enable_rom_selection) {
+            $('.romdiv').show();
+        } else {
+            $('.romdiv').hide();
+        }
 
-        // change this to "show()" if you want the debugger interface
-        $('#run_debug').hide();
+        // optional debug interface
+        if (enable_debug_interface) {
+            $('#run_debug').show();
+        } else {
+            $('#run_debug').hide();
+        }
 
         updateScreenPlacement();
 
+        setROMVersion('v6.78');
         hardReset();
         runOrDebug('run');
     }
