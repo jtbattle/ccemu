@@ -609,6 +609,7 @@ var ccemu = (function () {
             { label: 'Air Raid',        value: 'disks/airraid.ccvf'             },
             { label: 'Alien Invasion',  value: 'disks/alien_invasion_v1.4.ccvf' },
             { label: 'Blackjack',       value: 'disks/blackjack.ccvf'           },
+            { label: 'Blank',           value: 'disks/blank.ccvf'               },
             { label: 'Castle Quest',    value: 'disks/chip_33.ccvf'             },
             { label: 'Chess',           value: 'disks/chess.ccvf'               },
             { label: 'Chip #91',        value: 'disks/chip_91.ccvf'             },
