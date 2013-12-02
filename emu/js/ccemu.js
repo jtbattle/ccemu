@@ -886,6 +886,14 @@ var ccemu = (function () {
         $('#romsel').val(name);
     }
 
+    // from http://stackoverflow.com/questions/901115/how-can-i-get-query-string-values-in-javascript
+    function getParameterByName(name) {
+        name = name.replace(/[\[]/, "\\[").replace(/[\]]/, "\\]");
+        var regex = new RegExp("[\\?&]" + name + "=([^&#]*)"),
+            results = regex.exec(location.search);
+        return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
+    }
+
     // this is called when the DOM is completely loaded,
     // and begins the emulation
     function startEmu() {
@@ -944,7 +952,34 @@ var ccemu = (function () {
 
         updateScreenPlacement();
 
-        setROMVersion('v6.78');
+        // see if a boot conditions were specified
+        var url_cd0 = getParameterByName('cd0');
+        var url_cd1 = getParameterByName('cd1');
+        var url_rom = getParameterByName('rom');
+        var url_auto = getParameterByName('auto');
+
+        if (url_cd0 && url_cd0.match(/\.ccvf$/)) {
+            diskRemoteFile(0, url_cd0);
+        }
+        if (url_cd1 && url_cd1.match(/\.ccvf$/)) {
+            diskRemoteFile(1, url_cd1);
+        }
+
+        if (url_rom === 'v8.79') {
+            setROMVersion('v8.79');
+        } else {
+            if (url_rom && url_rom !== 'v6.78') {
+                alert("Bad ROM version specified; using v6.78");
+            }
+            setROMVersion('v6.78');
+        }
+
+        if (url_auto === '1') {
+            scheduler.oneShot( Math.floor(3.0*CPU_FREQ),
+                    function () { keybrd.forceKey('auto', true, true); },
+                    'autotimer');
+        }
+
         hardReset();
         runOrDebug('run');
     }
