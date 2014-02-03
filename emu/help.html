@@ -1,20 +1,12 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<title>JavaScript Compucolor II Emulator Help</title>
-
 <head>
-<link rel="stylesheet" type="text/css" href="ccemu.css" />
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<title>JavaScript Compucolor II Emulator Help</title>
+<link rel="stylesheet" type="text/css" href="css/ccemu.css" />
 <style>
-    body {
-        background-color: #f4f4f4;
-    }
-
-    div#wrapper {
-        margin: 6px;
-        max-width:45em;
-    }
-
+    body { background-color: #f4f4f4; }
+    div#wrapper { margin: 6px; max-width:45em; }
     .key {
         font-family:monospace;
         line-height:1.5em;
@@ -23,10 +15,7 @@
         background-color:#f4f4e0;
         border-radius:5px;
     }
-
-    .romdiv-NEUTER {
-        display:none;
-    }
+    .romdiv-NEUTER { display:none; }
 </style>
 </head>
 <body>
@@ -45,9 +34,9 @@ of the dedicated keys that the Compucolor had (where is the "cyan" key?)
 <ul>
     <li><a href="#important">The Most Important Things</a></li>
     <li><a href="#keyboard">Keyboard Mapping</a></li>
+    <li><a href="#virtual">Virtual Keyboard</a></li>
     <li><a href="#autotyping">Autotyping</a></li>
     <li><a href="#diskem">Disk Emulation</a></li>
-    <li><a href="#virtual">Virtual Keyboard</a></li>
     <li class="romdiv"><a href="#ROMs">ROM Versions</a></li>
     <li><a href="#charset">Character Set</a></li>
     <li><a href="#soundware">Soundware</a></li>
@@ -153,7 +142,7 @@ for you to give a command.  The three that you will care about are
     <li>The key sequence
         <span class="key">Esc</span> <span class="key">E</span>
         will bring you back to the BASIC command line without wiping out the
-        program which was resident.
+        resident program.
     </li>
     <li>The key sequence
         <span class="key">Esc</span> <span class="key">W</span>
@@ -214,6 +203,62 @@ key can be awkward to hit, the PC
 key has also been mapped to this function.
 </p>
 
+<p>
+The emulation of the keyboard is imperfect for a number of reasons, and in fact
+it is impossible to emulate the Compucolor keyboard perfectly from a standard
+PC keyboard.  The PC has a number of keys which don't appear on a Compucolor
+keyboard, and likewise, the Compucolor keyboard has many keys which don't
+appear on a standard PC keyboard.  Some of these problems can be overcome by
+using the on the
+<a href="#virtual">virtual keyboard</a> (next section).
+Another problem is that most PC keyboards don't implement N-key rollover, which
+means certain key combinations can't be recognized as being active at the same
+time; this matters for a few games which use multiple keys simultaneously for
+controlling game play.  See
+<a href="http://www.microsoft.com/appliedsciences/AntiGhostingExplained.mspx?siteID=rGMTN56tf_w-dphXGb6pl9xXoGUnBVHrzg">
+this link</a> to learn more about that issue.
+</p>
+
+<p>
+Finally, the javascript model of keyboard events is a fragmented mire; each
+browser implements events and the state communicated in each event in a
+different way, even sometimes different versions of one browser changes things.
+This can lead to a situation where the emulator gets confused: it thinks a key
+is held down even though it isn't.  In this case, one fix is to move the input
+focus to a different window (click on some icon on your desktop) then move
+focus back to the emulator window.  This will reset the emulated keyboard state.
+</p>
+
+<h2><a id="virtual">Virtual keyboard</a></h2>
+
+<p>
+The Compucolor came configured with one of three keyboard models: standard,
+extended, and deluxe.  These had some key that don't have a corresponding
+key on a standard PC keyboard, so in case you really need to use one of
+these keys, the emulator has a "virtual keyboard" feature.  By default it
+is hidden, but selecting one of the radio buttons on the left, under
+"Virtual Keyboard:" will enable pane with a deluxe keyboard key set,
+either in small, medium, or large size (to suit your preference).
+</p>
+
+<p>
+Most keys are depressed only as long as the mouse button is pressed over
+the key image.  To make the keyboard usable, though, the
+<span class="key">Caps Lock</span>,
+<span class="key">Repeat</span>,
+<span class="key">Shift</span>,
+and
+<span class="key">Control</span>
+keys are toggles -- each press inverts the state of the key.
+This allows pressing key chords like CTRL-H.
+</p>
+
+<p>
+Rather than trying to explain the complexities of the extended keyboard,
+I advise reading some of the Compucolor documentation.
+</p>
+
+
 <h2><a id="autotyping">Autotyping</a></h2>
 
 <p>
@@ -245,9 +290,11 @@ key will cancel the transfer.
 <p>
 There is one special feature to these autotyper files.
 If the first line of a loaded text file begins with the exact
+</p>
 <pre>
 [[[RESET]]]
 </pre>
+<p>
 (no spaces) it will force the emulated Compucolor to go through a hard reset
 before the rest of the file is read in.  This is convenient for autoloading
 games so that it will make sure any program already in memory is wiped out.
@@ -319,27 +366,6 @@ sure to save it as a .txt file, not an html file, otherwise it won't work.
 If that doesn't work, use CTRL-A to select all the text in the window,
 CTRL-C to copy it, then save it to a file yourself after pasting it into
 a text editor.
-</p>
-
-
-<h2><a id="virtual">Virtual keyboard</a></h2>
-
-<p>
-The Compucolor came configured with one of three keyboard models: standard,
-extended, and deluxe.  These had some key that don't have a corresponding
-key on a standard PC keyboard, so in case you really need to use one of
-these keys, the emulator has a "virtual keyboard" feature.  By default it
-is hidden, but selecting one of the radio buttons on the left, under
-"Virtual Keyboard:" will enable pane with a deluxe keyboard key set,
-either in small, medium, or large size (to suit your preference).
-The layout isn't strictly the same as a real deluxe keyboard &emdash;
-some key groups have been moved to reduce how much screen real estate
-the entire virtual keyboard takes up.
-</p>
-
-<p>
-Rather than trying to explain all of it, I advise reading some of the
-Compucolor documentation.
 </p>
 
 
@@ -500,7 +526,7 @@ Light testing shows that it mostly works, save these few problems:
 
 
 </div>
-<body>
+</body>
 
 <!--
   vim:expandtab:sw=4

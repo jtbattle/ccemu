@@ -1,4 +1,4 @@
-// Copyright (c) 2013, Jim Battle
+// Copyright (c) 2013-2014, Jim Battle
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -48,8 +48,8 @@ var cpu,
     floppy = [];
 
 // optional UI features
-var enable_debug_interface = 0;   // simple 8080 debug monitor
-var enable_rom_selection = 1;     // default v6.78 vs late v8.79 ROMs
+var enable_debug_interface = 0; // simple 8080 debug monitor
+var enable_rom_selection = 1;   // default v6.78 vs late v8.79 ROMs
 
 //============================================================================
 // emu core
@@ -666,6 +666,30 @@ var ccemu = (function () {
         }
     }
 
+    // note: all uses are using non-ascii encoding strings,
+    //       and when it gets down into encodeASCII, it uses the
+    //       ambient values of PC shift&control for the CC versions,
+    //       so we don't have to pass them.
+    function getVirtualModals() {
+        var capslock_state = $('#capslock').hasClass('active');
+        var repeat_state   = $('#repeat').hasClass('active');
+        var command_state  = $('#command').hasClass('active');
+        var ctrl_state     = $('#ctrl').hasClass('active') || command_state;
+        var shft_state     = $('#shftlft').hasClass('active') || command_state;
+        var keyobj = {
+                shft: shft_state,
+                ctrl: ctrl_state,
+                repeat: repeat_state,
+                capslock: capslock_state
+            };
+        return keyobj;
+    }
+
+    function setVirtualKeyModals() {
+        var keyobj = getVirtualModals();
+        keybrd.virtualKey(keyobj);
+    }
+
     function bindEvents() {
 
         // add "Fullscreen" screen size option only if the browser supports it
@@ -705,9 +729,14 @@ var ccemu = (function () {
             warmReset();
             this.blur();
         });
-        $('#auto').click(function () {
-            keybrd.forceKey('auto', true, true);
-            this.blur();
+        $('#auto').mousedown(function (evt) {
+            if (evt.which === 1) {
+                keybrd.virtualKey({key: 'auto'});
+                this.blur();
+            }
+        });
+        $('#auto').mouseup(function () {
+            keybrd.virtualKey({});
         });
         $('#fileinput').change(autorunLocalFile);
         $('#filesel').change(function () {
@@ -762,100 +791,93 @@ var ccemu = (function () {
         $('#run1').click(run1);
         $('#runn').click(runn);
 
-        // note: all uses are using non-ascii encoding strings,
-        //       and when it gets down into encodeASCII, it uses the
-        //       ambient values of PC shift&control for the CC versions,
-        //       so we don't have to pass them.
-        function bindVirtualKey(selector, encoding) {
-            $(selector).mousedown(function ()  { keybrd.forceKey(encoding, true, true); });
-            $(selector).mouseup(function ()    { keybrd.clearKey(); });
-            $(selector).mouseleave(function () { keybrd.clearKey(); });
-        }
-
-        // connect color keys
-        bindVirtualKey('button#black',   'black');
-        bindVirtualKey('button#blue',    'blue');
-        bindVirtualKey('button#red',     'red');
-        bindVirtualKey('button#magenta', 'magenta');
-        bindVirtualKey('button#green',   'green');
-        bindVirtualKey('button#cyan',    'cyan');
-        bindVirtualKey('button#yellow',  'yellow');
-        bindVirtualKey('button#white',   'white');
-
-        bindVirtualKey('button#F0',      'F0');
-        bindVirtualKey('button#F1',      'F1');
-        bindVirtualKey('button#F2',      'F2');
-        bindVirtualKey('button#F3',      'F3');
-        bindVirtualKey('button#F4',      'F4');
-        bindVirtualKey('button#F5',      'F5');
-        bindVirtualKey('button#F6',      'F6');
-        bindVirtualKey('button#F7',      'F7');
-        bindVirtualKey('button#F8',      'F8');
-        bindVirtualKey('button#F9',      'F9');
-        bindVirtualKey('button#F10',     'F10');
-        bindVirtualKey('button#F11',     'F11');
-        bindVirtualKey('button#F12',     'F12');
-        bindVirtualKey('button#F13',     'F13');
-        bindVirtualKey('button#F14',     'F14');
-        bindVirtualKey('button#F15',     'F15');
-
-        bindVirtualKey('button#auto',    'auto');
-        bindVirtualKey('button#fgon',    'fgon');
-        bindVirtualKey('button#bgon',    'bgon');
-        bindVirtualKey('button#blnkon',  'blinkon');
-        bindVirtualKey('button#bla7off', 'bla7off');
-        bindVirtualKey('button#a7on',    'a7on');
-        bindVirtualKey('button#vis',     '[');
-        bindVirtualKey('button#upa',     '\\');
-        bindVirtualKey('button#block',   ']');
-        bindVirtualKey('button#user',    '^');
-        bindVirtualKey('button#crt',     '_');
-
-        bindVirtualKey('button#epage',   'epage');
-        bindVirtualKey('button#eline',   'eline');
-//      bindVirtualKey('button#cpurst',  'cpurst'); // see below
-        bindVirtualKey('button#epage',   'epage');
-
-        bindVirtualKey('button#delchar', 'delchar');
-        bindVirtualKey('button#inschar', 'inschar');
-        bindVirtualKey('button#delline', 'delline');
-        bindVirtualKey('button#insline', 'insline');
-
-        // the reset button requires special handling.  we can't use
-        // forceKey() since we aren't sending a character.
-        $('button#cpurst').mousedown(function (evt) {
-            if (evt.ctrlKey && evt.shiftKey) {
-                ccemu.hardReset();
-            } else {
-                ccemu.warmReset();
-            }
-        });
-
         // wire up the virtual keyboard resizing controls
         function virtualKeyboardSize() {
-            var vkbd = $('#virtualkeyboard');
+            var vkbd      = $('#virtualkeyboard');
             var vkButtons = $('#virtualkeyboard button');
+            var vkBig     = $('#virtualkeyboard button span.big');
+            var vkBig2    = $('#virtualkeyboard button span.big2');
             if ($('#vkNone').is(':checked')) {
                 vkbd.hide(300);
-            }
-            if ($('#vkSmall').is(':checked')) {
+            } else if ($('#vkSmall').is(':checked')) {
                 vkbd.show(300);
+                vkbd.css({ 'font-size': '8px' });
                 vkButtons.css({ 'font-size': '8px' });
-            }
-            if ($('#vkMedium').is(':checked')) {
+                vkBig2.css({ 'font-size': '9px' });
+                vkBig.css({ 'font-size': '11px' });
+            } else if ($('#vkMedium').is(':checked')) {
                 vkbd.show(300);
+                vkbd.css({ 'font-size': '9px' });
                 vkButtons.css({ 'font-size': '9px' });
-            }
-            if ($('#vkLarge').is(':checked')) {
+                vkBig2.css({ 'font-size': '10px' });
+                vkBig.css({ 'font-size': '12px' });
+            } else if ($('#vkLarge').is(':checked')) {
                 vkbd.show(300);
+                vkbd.css({ 'font-size': '10px' });
                 vkButtons.css({ 'font-size': '10px' });
+                vkBig2.css({ 'font-size': '11px' });
+                vkBig.css({ 'font-size': '13px' });
             }
+            // take the focus off the control, otherwise subsequent
+            // keyboard events can activate it inadvertently
+            vkbd.blur();
         }
         $('#vkNone').click(virtualKeyboardSize);
         $('#vkSmall').click(virtualKeyboardSize);
         $('#vkMedium').click(virtualKeyboardSize);
         $('#vkLarge').click(virtualKeyboardSize);
-        $('#vkNone').prop('checked', true);
+        $('#vkNone').prop('checked', true);  // default
+
+        $('#vksel').change(function () {
+            var index = this.selectedIndex;  // 0-3
+            buildVirtualKeyboard(index + 1);
+            virtualKeyboardSize();
+        });
+
+        // have the div containing the virtual keys catch and delegate events,
+        // rather than attaching event handlers to each key
+        var vk = $("#virtualkeyboard");
+        vk.mousedown(function (evt) {
+            var target = evt.target || evt.srcElement;
+            var encoding;
+            if (target.dataset === undefined) {
+                // IE9, IE10
+                encoding = target.getAttribute('data-keyval');
+            } else {
+                // assume dataset works
+                encoding = target.dataset.keyval;
+            }
+            if (encoding === undefined) {
+                return;
+            }
+            if (encoding === 'capslock' ||
+                encoding === 'command' ||
+                encoding === 'repeat') {
+                $('button#' + encoding).toggleClass('active');
+            }
+            if (encoding === 'shft') {
+                $('button#shftlft').toggleClass('active');
+                $('button#shftrgt').toggleClass('active');
+            }
+            if (encoding === 'ctrl') {
+                $('button#ctrl').toggleClass('active');
+            }
+            var keyobj = getVirtualModals();
+            if (encoding === 'cpurst') {
+                if (keyobj.ctrl && keyobj.shft) {
+                    ccemu.hardReset();
+                } else {
+                    ccemu.warmReset();
+                }
+                return;
+            }
+            if (encoding !== 'command') {  // command is really shift+ctrl
+                keyobj.key = encoding;
+            }
+            keybrd.virtualKey(keyobj);
+        });
+        vk.mouseup(setVirtualKeyModals);
+        vk.mouseleave(setVirtualKeyModals);
     }
 
     function detectFeatures() {
@@ -924,6 +946,360 @@ var ccemu = (function () {
         return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
 
+    // 1=standard, 2=enhanced, 3=deluxe, 4=special
+    function buildVirtualKeyboard(kb_model) {
+        // format:
+        //    - a list of rows
+        //      - each row contains a list of key descriptions
+        //        - each key description contains a dict of
+        //            + the keyboard model number where this key is used
+        //            + the key value sent to the button handler
+        //            + label     (the primary key label)
+        //            + label2    (the label above the primary label)
+        //            + style     (the css class)
+        //            + width     (button or spacer width)
+        var kbtable = [
+            // row 0: function keys
+            [
+                { model: 3, key: 'F0',    id: 'F0',    label2: 'F0',  label: 'VECT|INC',   style: 'fcn'    },
+                { model: 3, key: 'F1',    id: 'F1',    label2: 'F1',  label: 'VECT|Y1',    style: 'fcn'    },
+                { model: 3, key: 'F2',    id: 'F2',    label2: 'F2',  label: 'VECT|X1',    style: 'fcn'    },
+                { model: 3, key: 'F3',    id: 'F3',    label2: 'F3',  label: 'Y BAR|INC',  style: 'fcn'    },
+                { model: 3, key: 'F4',    id: 'F4',    label2: 'F4',  label: 'Y BAR|YM',   style: 'fcn'    },
+                { model: 3, key: 'F5',    id: 'F5',    label2: 'F5',  label: 'Y BAR|X',    style: 'fcn'    },
+                { model: 3, key: 'F6',    id: 'F6',    label2: 'F6',  label: 'Y BAR|Y0',   style: 'fcn'    },
+                { model: 3, key: 'F7',    id: 'F7',    label2: 'F7',  label: 'X BAR|INC',  style: 'fcn'    },
+                { model: 3, key: 'F8',    id: 'F8',    label2: 'F8',  label: 'X BAR|XM',   style: 'fcn'    },
+                { model: 3, key: 'F9',    id: 'F9',    label2: 'F9',  label: 'X BAR|Y',    style: 'fcn'    },
+                { model: 3, key: 'F10',   id: 'F10',   label2: 'F10', label: 'X BAR|0',    style: 'fcn'    },
+                { model: 3, key: 'F11',   id: 'F11',   label2: 'F11', label: 'POINT|INC',  style: 'fcn'    },
+                { model: 3, key: 'F12',   id: 'F12',   label2: 'F12', label: 'POINT|Y',    style: 'fcn'    },
+                { model: 3, key: 'F13',   id: 'F13',   label2: 'F13', label: 'POINT|X',    style: 'fcn'    },
+                { model: 3, key: 'F14',   id: 'F14',   label2: 'F14', label: 'CHAR|PLOT',  style: 'fcn'    },
+                { model: 1, key: 'curup', id: 'up',                   label: '&uarr;',     style: 'arrow'  },
+                { model: 3, key: 'F15',   id: 'F15',   label2: 'F15', label: 'PLOT|ESC',   style: 'fcn'    },
+                {                                                                          style: 'spacer' },
+                { model: 1, key: 'epage', id: 'epage',                label: 'ERASE|PAGE', style: 'rstrow' },
+                { model: 1, key: 'eline', id: 'eline',                label: 'ERASE|LINE', style: 'rstrow' },
+                {                                                                          style: 'spacer' },
+                { model: 1, key: 'cpurst', id: 'cpurst',              label: 'CPU|RESET',  style: 'rstrow' }
+            ],
+
+            // row 1: more function keys
+            [
+                {                                                                                        style: 'spacer', width: 3.0 },
+                { model: 1, key: 'auto',    id: 'autok',                           label: 'AUTO'                                     },
+                { model: 1, key: 'fgon',    id: 'fgon',    label2: 'FG ON',        label: 'FLG OFF'                                  },
+                { model: 1, key: 'bgon',    id: 'bgon',    label2: 'BG ON',        label: 'FLG ON'                                   },
+                { model: 1, key: 'blinkon', id: 'blnkon',                          label: 'BLINK|ON'                                 },
+                { model: 1, key: 'bla7off', id: 'bla7off',                         label: 'BL/A7|OFF'                                },
+                { model: 1, key: 'a7on',    id: 'a7on',                            label: 'A7|ON'                                    },
+                { model: 1, key: '[',       id: 'vis',     label2: 'VIS',          label: '['                                        },
+                { model: 1, key: '\\',      id: 'upa',     label2: '45 UP|&uarr;', label: '\\'                                       },
+                { model: 1, key: ']',       id: 'block',   label2: 'BLCK',         label: ']'                                        },
+                { model: 1, key: '^',       id: 'user',    label2: 'USER',         label: '^'                                        },
+                { model: 1, key: '_',       id: 'crt',     label2: 'CRT',          label: '_'                                        },
+                { model: 1, key: 'curlft',  id: 'left',                            label: '&larr;',      style: 'arrow'              },
+                { model: 1, key: 'home',    id: 'home',                            label: 'HOME',        style: 'arrow'              },
+                { model: 1, key: 'currgt',  id: 'right',                           label: '&rarr;',      style: 'arrow'              },
+                {                                                                                        style: 'spacer'             },
+                { model: 2, key: 'delchar', id: 'delchar',                         label: 'DELETE|CHAR'                              },
+                { model: 2, key: 'inschar', id: 'inschar',                         label: 'INSERT|CHAR'                              },
+                { model: 2, key: 'delline', id: 'delline',                         label: 'DELETE|LINE'                              },
+                { model: 2, key: 'insline', id: 'insline',                         label: 'INSERT|LINE'                              }
+            ],
+
+            // row 2: numbers
+            [
+                { model: 2, key: 'black',  id: 'black',                  label: '[OUT]',  style: 'black'  },
+                { model: 2, key: 'blue',   id: 'blue',                   label: '[LOAD]', style: 'blue'   },
+                {                                                                         style: 'spacer' },
+                { model: 1, key: 'esc',    id: 'esc',                    label: 'ESC'                     },
+                { model: 1, key: '1',      id: 'n1',    label2: '!',     label: '1'                       },
+                { model: 1, key: '2',      id: 'n2',    label2: '"',     label: '2'                       },
+                { model: 1, key: '3',      id: 'n3',    label2: '#',     label: '3'                       },
+                { model: 1, key: '4',      id: 'n4',    label2: '$',     label: '4'                       },
+                { model: 1, key: '5',      id: 'n5',    label2: '%',     label: '5'                       },
+                { model: 1, key: '6',      id: 'n6',    label2: '&amp;', label: '6'                       },
+                { model: 1, key: '7',      id: 'n7',    label2: "'",     label: '7'                       },
+                { model: 1, key: '8',      id: 'n8',    label2: '(',     label: '8'                       },
+                { model: 1, key: '9',      id: 'n9',    label2: ')',     label: '9'                       },
+                { model: 1, key: '0',      id: 'n0',                     label: '0'                       },
+                { model: 1, key: '-',      id: 'minus', label2: '=',     label: '-'                       },
+                { model: 1, key: 'curdwn', id: 'down',                   label: '&darr;', style: 'arrow'  },
+                { model: 1, key: 'break',  id: 'break', label2: 'ATTN',  label: 'BREAK'                   }
+            ],
+
+            // row 3: QUERTY
+            [
+                { model: 2, key: 'red',     id: 'red',                            label: '[PUT]',  style: 'red'                 },
+                { model: 2, key: 'magenta', id: 'magenta',                        label: '[POKE]', style: 'magenta'             },
+                {                                                                                  style: 'spacer'              },
+                { model: 1, key: 'tab',     id: 'tab',                            label: 'TAB',                     width: 1.40 },
+                { model: 1, key: 'Q',       id: 'cQ',     label2: '(INS|CHAR)',   label: 'Q',      style: 'red'                 },
+                { model: 1, key: 'W',       id: 'cW',     label2: '(BASIC)| ',    label: 'W',      style: 'white'               },
+                { model: 1, key: 'E',       id: 'cE',     label2: '(BSC|RST)',    label: 'E'                                    },
+                { model: 1, key: 'R',       id: 'cR',     label2: '(BAUD|RATE)',  label: 'R',      style: 'green'               },
+                { model: 1, key: 'T',       id: 'cT',     label2: '(TEXT|EDIT)',  label: 'T',      style: 'blue'                },
+                { model: 1, key: 'Y',       id: 'cY',     label2: '(TEST)| ',     label: 'Y'                                    },
+                { model: 1, key: 'U',       id: 'cU',     label2: '(INS|LINE)',   label: 'U',      style: 'magenta'             },
+                { model: 1, key: 'I',       id: 'cI',     label2: ' | ',          label: 'I'                                    },
+                { model: 1, key: 'O',       id: 'cO',     label2: ' | ',          label: 'O'                                    },
+                { model: 1, key: 'P',       id: 'cP',     label2: '(CPU|OP SYS)', label: 'P',      style: 'black'               },
+                { model: 1, key: '@',       id: 'cat',    label2: 'NULL| ',       label: '@'                                    },
+                { model: 1, key: 'cr',      id: 'return',                         label: 'RETURN', style: 'return', width: 1.40 },
+                {                                                                                  style: 'spacer', width: 1.25 },
+                { model: 2, key: 'num7',    id: 'nk7',                            label: '7',      style: 'nkgreen'             },
+                { model: 2, key: 'num8',    id: 'nk8',                            label: '8',      style: 'nkgreen'             },
+                { model: 2, key: 'num9',    id: 'nk9',                            label: '9',      style: 'nkgreen'             },
+                { model: 2, key: 'num/',    id: 'nkdiv',                          label: '/'                                    }
+            ],
+
+            // row 4: ASDF
+            [
+                { model: 2, key: 'green', id: 'green',                          label: '[PLOT]',  style: 'green'               },
+                { model: 2, key: 'cyan',  id: 'cyan',                           label: '[PRINT]', style: 'cyan'                },
+                {                                                                                 style: 'spacer', width: 1.25 },
+                { model: 1, key: 'ctrl',  id: 'ctrl',                           label: 'CONTROL',                  width: 1.40 },
+                { model: 1, key: 'A',     id: 'cA',      label2: 'PROT|(BLND)', label: 'A'                                     },
+                { model: 1, key: 'S',     id: 'cS',      label2: '(ASMB)| ',    label: 'S',       style: 'yellow'              },
+                { model: 1, key: 'D',     id: 'cD',      label2: '(DISK|FCS)',  label: 'D'                                     },
+                { model: 1, key: 'F',     id: 'cF',      label2: ' | ',         label: 'F'                                     },
+                { model: 1, key: 'G',     id: 'cG',      label2: 'BELL| ',      label: 'G'                                     },
+                { model: 1, key: 'H',     id: 'cH',      label2: '(HALF)| ',    label: 'H'                                     },
+                { model: 1, key: 'J',     id: 'cJ',      label2: ' | ',         label: 'J'                                     },
+                { model: 1, key: 'K',     id: 'cK',      label2: '(ROLL)| ',    label: 'K'                                     },
+                { model: 1, key: 'L',     id: 'cL',      label2: '(LOCL)| ',    label: 'L'                                     },
+                { model: 1, key: ';',     id: 'semi',    label2: '+',           label: ';'                                     },
+                { model: 1, key: ':',     id: 'colon',   label2: '*',           label: ':'                                     },
+                {                                                                                 style: 'spacer', width: 2.40 },
+                { model: 2, key: 'num4',  id: 'nk4',                            label: '4',       style: 'nkgreen'             },
+                { model: 2, key: 'num5',  id: 'nk5',                            label: '5',       style: 'nkgreen'             },
+                { model: 2, key: 'num6',  id: 'nk6',                            label: '6',       style: 'nkgreen'             },
+                { model: 2, key: 'num*',  id: 'nkmult',                         label: '*'                                     }
+            ],
+
+            // row 5: ZXCV
+            [
+                { model: 2, key: 'yellow', id: 'yellow',                         label: '[SAVE]',  style: 'yellow'              },
+                { model: 2, key: 'white',  id: 'white',                          label: '[LIST]',  style: 'white'               },
+                {                                                                                  style: 'spacer', width: 1.75 },
+                { model: 1, key: 'shft',   id: 'shftlft',                        label: 'SHIFT',                    width: 1.40 },
+                { model: 1, key: 'Z',      id: 'cZ',      label2: '(45 DW)| ',   label: 'Z'                                     },
+                { model: 1, key: 'X',      id: 'cX',      label2: 'XMIT| ',      label: 'X'                                     },
+                { model: 1, key: 'C',      id: 'cC',      label2: 'CURSOR|X-Y',  label: 'C'                                     },
+                { model: 1, key: 'V',      id: 'cV',      label2: '(DEL|LINE)',  label: 'V',       style: 'cyan'                },
+                { model: 1, key: 'B',      id: 'cB',      label2: 'PLOT| ',      label: 'B'                                     },
+                { model: 1, key: 'N',      id: 'cN',      label2: ' | ',         label: 'N'                                     },
+                { model: 1, key: 'M',      id: 'cM',      label2: '(TERM|MODE)', label: 'M'                                     },
+                { model: 1, key: ',',      id: 'comma',   label2: '<',           label: ','                                     },
+                { model: 1, key: '.',      id: 'period',  label2: '>',           label: '.'                                     },
+                { model: 1, key: '/',      id: 'slash',   label2: '?',           label: '/'                                     },
+                { model: 1, key: 'shft',   id: 'shftrgt',                        label: 'SHIFT',                    width: 1.40 },
+                {                                                                                  style: 'spacer', width: 1.50 },
+                { model: 2, key: 'num1',   id: 'nk1',                            label: '1',       style: 'nkgreen'             },
+                { model: 2, key: 'num2',   id: 'nk2',                            label: '2',       style: 'nkgreen'             },
+                { model: 2, key: 'num3',   id: 'nk3',                            label: '3',       style: 'nkgreen'             },
+                { model: 2, key: 'num-',   id: 'nksub',                          label: '-'                                     }
+            ],
+
+            // row 6: spacebar row
+            [
+                { model: 2, key: 'command',  id: 'command',  label: '[COMMAND]',                  width: 2.0  },
+                {                                                                style: 'spacer', width: 3.15 },
+                { model: 1, key: 'capslock', id: 'capslock', label: 'CAPS|LOCK'                               },
+                { model: 1, key: ' ',        id: 'spacebar', label: '',                           width: 8.0  },
+                { model: 1, key: 'repeat',   id: 'repeat',   label: 'REPEAT'                                  },
+                {                                                                style: 'spacer', width: 2.90 },
+                { model: 2, key: 'num0',     id: 'nk0',      label: '0',         style: 'nkgreen'             },
+                { model: 2, key: 'num.',     id: 'nkdot',    label: '.'                                       },
+                { model: 2, key: 'num=',     id: 'nkeq',     label: '='                                       },
+                { model: 2, key: 'num+',     id: 'nkplus',   label: '+'                                       }
+            ]
+        ];
+
+        // different layout: just the keys not found on a PC keyboard
+        // it moves things around to make the layout more compact
+        var kbtable2 = [
+            // row 0: function keys
+            [
+                { model: 4, key: 'F0',    id: 'F0',    label2: 'F0',  label: 'VECT|INC',   style: 'fcn' },
+                { model: 4, key: 'F1',    id: 'F1',    label2: 'F1',  label: 'VECT|Y1',    style: 'fcn' },
+                { model: 4, key: 'F2',    id: 'F2',    label2: 'F2',  label: 'VECT|X1',    style: 'fcn' },
+                { model: 4, key: 'F3',    id: 'F3',    label2: 'F3',  label: 'Y BAR|INC',  style: 'fcn' },
+                { model: 4, key: 'F4',    id: 'F4',    label2: 'F4',  label: 'Y BAR|YM',   style: 'fcn' },
+                { model: 4, key: 'F5',    id: 'F5',    label2: 'F5',  label: 'Y BAR|X',    style: 'fcn' },
+                { model: 4, key: 'F6',    id: 'F6',    label2: 'F6',  label: 'Y BAR|Y0',   style: 'fcn' },
+                { model: 4, key: 'F7',    id: 'F7',    label2: 'F7',  label: 'X BAR|INC',  style: 'fcn' },
+                { model: 4, key: 'F8',    id: 'F8',    label2: 'F8',  label: 'X BAR|XM',   style: 'fcn' },
+                { model: 4, key: 'F9',    id: 'F9',    label2: 'F9',  label: 'X BAR|Y',    style: 'fcn' },
+                { model: 4, key: 'F10',   id: 'F10',   label2: 'F10', label: 'X BAR|0',    style: 'fcn' },
+                { model: 4, key: 'F11',   id: 'F11',   label2: 'F11', label: 'POINT|INC',  style: 'fcn' },
+                { model: 4, key: 'F12',   id: 'F12',   label2: 'F12', label: 'POINT|Y',    style: 'fcn' },
+                { model: 4, key: 'F13',   id: 'F13',   label2: 'F13', label: 'POINT|X',    style: 'fcn' },
+                { model: 4, key: 'F14',   id: 'F14',   label2: 'F14', label: 'CHAR|PLOT',  style: 'fcn' },
+                { model: 4, key: 'F15',   id: 'F15',   label2: 'F15', label: 'PLOT|ESC',   style: 'fcn' }
+            ],
+
+            // row 1: more function keys
+            [
+                { model: 4, key: 'black',   id: 'black',                           label: '[OUT]',       style: 'black'  },
+                { model: 4, key: 'blue',    id: 'blue',                            label: '[LOAD]',      style: 'blue'   },
+                { model: 4, key: 'auto',    id: 'autok',                           label: 'AUTO'                         },
+                { model: 4, key: 'fgon',    id: 'fgon',    label2: 'FG ON',        label: 'FLG OFF'                      },
+                { model: 4, key: 'bgon',    id: 'bgon',    label2: 'BG ON',        label: 'FLG ON'                       },
+                { model: 4, key: 'blinkon', id: 'blnkon',                          label: 'BLINK|ON'                     },
+                { model: 4, key: 'bla7off', id: 'bla7off',                         label: 'BL/A7|OFF'                    },
+                { model: 4, key: 'a7on',    id: 'a7on',                            label: 'A7|ON'                        },
+                { model: 4, key: '[',       id: 'vis',     label2: 'VIS',          label: '['                            },
+                { model: 4, key: '\\',      id: 'upa',     label2: '45 UP|&uarr;', label: '\\'                           },
+                { model: 4, key: ']',       id: 'block',   label2: 'BLCK',         label: ']'                            },
+                { model: 4, key: '^',       id: 'user',    label2: 'USER',         label: '^'                            },
+                { model: 4, key: '_',       id: 'crt',     label2: 'CRT',          label: '_'                            }
+            ],
+
+            // row 2:
+            [
+                { model: 4, key: 'red',     id: 'red',       label: '[PUT]',      style: 'red'     },
+                { model: 4, key: 'magenta', id: 'magenta',   label: '[POKE]',     style: 'magenta' },
+            ],
+
+            // row 3:
+            [
+                { model: 4, key: 'green',   id: 'green',     label: '[PLOT]',     style: 'green'             },
+                { model: 4, key: 'cyan',    id: 'cyan',      label: '[PRINT]',    style: 'cyan'              },
+                {                                                                 style: 'spacer', width: 10 },
+                { model: 4, key: 'epage',   id: 'epage',     label: 'ERASE|PAGE', style: 'rstrow'            },
+                { model: 4, key: 'eline',   id: 'eline',     label: 'ERASE|LINE', style: 'rstrow'            },
+                {                                                                 style: 'spacer'            },
+                { model: 4, key: 'cpurst',  id: 'cpurst',    label: 'CPU|RESET',  style: 'rstrow'            }
+            ],
+
+            // row 4:
+            [
+                { model: 4, key: 'yellow', id: 'yellow',     label: '[SAVE]',     style: 'yellow'            },
+                { model: 4, key: 'white',  id: 'white',      label: '[LIST]',     style: 'white'             },
+                {                                                                 style: 'spacer', width: 10 },
+                { model: 4, key: 'delchar', id: 'delchar',   label: 'DELETE|CHAR'                            },
+                { model: 4, key: 'inschar', id: 'inschar',   label: 'INSERT|CHAR'                            },
+                { model: 4, key: 'delline', id: 'delline',   label: 'DELETE|LINE'                            },
+                { model: 4, key: 'insline', id: 'insline',   label: 'INSERT|LINE'                            }
+            ],
+
+            // row 5:
+            [
+                { model: 4, key: 'command',  id: 'command',  label: '[COMMAND]',                   width: 2.0 },
+                {                                                                 style: 'spacer', width: 1.0 },
+                { model: 4, key: 'ctrl',     id: 'ctrl',     label: 'CONTROL',                     width: 1.4 },
+                { model: 4, key: 'shft',     id: 'shftlft',  label: 'SHIFT',                       width: 1.4 }
+            ]
+        ];
+
+        // put a span class wrapper around keys which should be in a larger font
+        // class "big" is for single letter primary labels (eg, 'A')
+        // class "big2" is for multi-letter primary labels (eg, 'HOME')
+        function bigger_label(label) {
+            var bigones = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                          '0123456789' +
+                          '!"#$%&\'(),<.>*/?;:=+-@[]^\\_';
+            var others = { '&amp;': 1,
+                           '&uarrow': 1, '&darrow': 1, '&larrow': 1, '&rarrow': 1 };
+            var others2 = { '&uarrow': 1, '&darrow': 1, '&larrow': 1, '&rarrow': 1,
+                            'TAB': 1, 'ESC': 1, 'HOME': 1, 'RETURN': 1,
+                            'AUTO': 1, 'SHIFT': 1, 'CONTROL': 1,
+                            '[OUT]': 1, '[LOAD]': 1,
+                            '[PUT]': 1, '[POKE]': 1,
+                            '[PLOT]': 1, '[PRINT]': 1,
+                            '[SAVE]': 1, '[LIST]': 1,
+                            '[COMMAND]': 1 };
+            var big = ((label.length === 1) & (bigones.indexOf(label) >= 0)) ||
+                      others[label];
+            var big2 = others2[label];
+            return (big)  ? ('<span class="big">' + label + '</span>') :
+                   (big2) ? ('<span class="big2">' + label + '</span>') :
+                            label;
+        }
+
+        var scale_em = 5.5;
+
+        // generate the virtual keyboard.
+        // we can't use a table because the keys of each row don't line up, so instead we have
+        // a div and fill it with absolutely positioned buttons.
+        var fragment = document.createDocumentFragment(),
+            thisdiv = document.createElement('div'),
+            max_width = 0;
+
+        fragment.appendChild(thisdiv);
+
+        var kbtable_src = (kb_model < 4) ? kbtable : kbtable2;
+        var row, kbitem, kbitemidx, kbrowlen;
+        var pos_y = 0;
+        for (row=0; row < kbtable_src.length; row++) {
+            var pos_x = (kb_model === 1) ? -3 : 0;  // left three columns of keys are all empty
+            for(kbitemidx=0, kbrowlen = kbtable_src[row].length; kbitemidx < kbrowlen; kbitemidx++) {
+
+                kbitem = kbtable_src[row][kbitemidx];
+                var style = (kbitem.model <= kb_model) ? kbitem.style : 'spacer';
+                var thisbut = (style === 'spacer') ? document.createElement('div')
+                                                   : document.createElement('button');
+
+                var label = "";
+                if (kbitem.label2 !== undefined) {
+                    label = kbitem.label2.replace(/ /g, '&nbsp;');
+                    label = bigger_label(label);
+                    label = label.replace(/\|/g, ' <br /> ');
+                }
+                if (kbitem.label !== undefined) {
+                    if (label) {
+                        // separate shifted legend from unshifted legend
+                        label += ' <br /> ';
+                    }
+                    var label_tmp = kbitem.label.replace(/ /g, '&nbsp;');
+                    label_tmp = bigger_label(label_tmp);
+                    label += label_tmp.replace(/\|/, ' <br /> ');
+                }
+                label = (style === 'spacer') ? '' : label;
+
+                thisbut.id = kbitem.id;
+                thisbut.innerHTML = label;
+                thisbut.className = kbitem.style || 'norm';
+                thisbut.style.width = (scale_em * (kbitem.width || 1.0)) + 'em';
+                thisbut.style.position = 'absolute';  // relative to containing div
+                thisbut.style.left = (scale_em * pos_x) + 'em';
+                thisbut.style.top  = (scale_em * pos_y) + 'em';
+                if (kbitem.key !== undefined) {
+                    if (thisbut.dataset === undefined) {
+                        // IE9, IE10
+                        thisbut.setAttribute('data-keyval', kbitem.key);
+                    } else {
+                        // assume dataset is supported
+                        thisbut.dataset.keyval = kbitem.key;
+                    }
+                }
+                thisdiv.appendChild(thisbut);
+
+                pos_x += (kbitem.width || 1.0);
+            } // for kbitemidx
+
+            max_width = (pos_x > max_width) ? pos_x : max_width;
+            pos_y += 1;
+        } // for row
+
+        thisdiv.style.position = 'relative';
+        thisdiv.style.width  = (scale_em * (max_width + 0.5)) + 'em';
+        thisdiv.style.height = (scale_em * (pos_y + 0.5)) + 'em';
+        thisdiv.style.marginLeft = thisdiv.style.marginRight = 'auto';  // centered
+
+        // inject the keyboard into the wrapper div
+        var vkdiv = document.getElementById('virtualkeyboard');
+        var old = vkdiv.firstElementChild;
+        if (old) {
+            vkdiv.replaceChild(fragment, old);
+        } else {
+            vkdiv.appendChild(fragment);
+        }
+    }
+
     // this is called when the DOM is completely loaded,
     // and begins the emulation
     function startEmu() {
@@ -935,7 +1311,8 @@ var ccemu = (function () {
             wrUnsafe(i, 0);
         }
 
-        cpu = new Cpu(ram, rd, wr, input, output);
+        var fnIntVec = tms5501.getIntVector;  // interrupt vector callback
+        cpu = new Cpu(ram, rd, wr, input, output, fnIntVec);
         for (i = 0; i < numFloppies; i++) {
             floppy.push(new Floppy(i));
         }
@@ -963,6 +1340,9 @@ var ccemu = (function () {
         $('#chsetsel').val('Standard');
         $('#romsel').val('v6.78');
         $('#soundware_cb').prop('checked', false);
+        $('#vksel').val('Deluxe');
+
+        buildVirtualKeyboard(3); // full keyboard, by default
 
         // connect functions up to html elements
         bindEvents();
@@ -1012,7 +1392,7 @@ var ccemu = (function () {
 
         if (url_auto === '1') {
             scheduler.oneShot( Math.floor(3.0*CPU_FREQ),
-                    function () { keybrd.forceKey('auto', true, true); },
+                    function () { keybrd.virtualKey({ key: 'auto' }); },
                     'autotimer');
         }
 

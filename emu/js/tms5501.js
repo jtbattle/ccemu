@@ -1,4 +1,4 @@
-// Copyright (c) 2013, Jim Battle
+// Copyright (c) 2013-2014, Jim Battle
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -28,8 +28,8 @@
 
 // option flags for jslint:
 /* global console */
-/* global ccemu, cpu, keybrd, floppy, audio */
-/* global assert, floppy_dbg */
+/* global ccemu, cpu, keybrd, floppy, audio, scheduler */
+/* global alert, assert, floppy_dbg */
 
 var tms5501 = (function () {
 
@@ -45,9 +45,7 @@ var tms5501 = (function () {
 
         outport = 0x00,    // parallel output port
 
-// FIXME: bit 2 is normally high when no data is being received
-//        it is used to detect break status
-        sstatus = 0x00,   // interrupt status:
+        sstatus = 0x00,   // chip status:
                           //   bit 0: frame error
                           //   bit 1: overrun error
                           //   bit 2: serial rcvd
@@ -87,16 +85,23 @@ var tms5501 = (function () {
 
         period = [0x00, 0x00, 0x00, 0x00, 0x00], // counter (re)init value
 
-        count = [0x00, 0x00, 0x00, 0x00, 0x00]; // current counter
+        count = [0x00, 0x00, 0x00, 0x00, 0x00], // current counter
+
+        txCallbackTimer;  // handle to callback object
+
+    // useful constant to have around
+    var CPU_FREQ;
 
     // power on reset
     function reset() {
-        sstatus = 0x10;        // tx buffer is empty
+        CPU_FREQ = ccemu.getCpuFreq();
+        sstatus = 0x14;        // tx buffer is empty; rx line is mark
         txdataCount = 0;
         rate = 0x00;
         intMask = 0x00;
         intStatus = 0x20;      // serial tx buffer empty interrupt
         dscCmd = 0x00;         // discrete command
+        txCallbackTimer = undefined;
         for (var i = 0; i < 5; ++i) {
             period[i] = 0x00;
             count[i] = 0x00;
@@ -139,6 +144,62 @@ var tms5501 = (function () {
         checkInterruptStatus();
     }
 
+    // return the number of ticks corresonding to one bit at the current
+    // baud rate.  the TMS 5501 documentation says:
+    //    ... If more than one bit is high, the highest rate indicated
+    //        will result.  If bits 0 through 6 are all low, both the
+    //        receiver and transmitter circuitry will be inhibited.
+    function bitsToTicks(numbits) {
+        var baud, ticks;
+        if (rate & 0x40) {
+            baud = 9600;
+        } else if (rate & 0x20) {
+            baud = 4800;
+        } else if (rate & 0x10) {
+            baud = 2400;
+        } else if (rate & 0x08) {
+            baud = 1200;
+        } else if (rate & 0x04) {
+            baud = 300;
+        } else if (rate & 0x02) {
+            baud = 150;
+        } else if (rate & 0x01) {
+            baud = 110;
+        } else {
+            baud = 0;
+        }
+
+        // bits [5:4] of the discrete command register are undocumented
+        // test mode bits.  it is known, however, that a value of 1 is
+        // used by the floppy mode to boost the baud rate.
+        switch (dscCmd & 0x30) {
+            case 0x00:
+                baud = baud;
+                break;
+            case 0x10:
+                baud = 16*baud;  // used by floppy
+                break;
+            case 0x20:
+                baud = baud;  // undocumented
+                break;
+            case 0x30:
+                baud = baud;  // undocumented
+                break;
+        }
+
+        ticks = (baud === 0) ? (1<<31) : // really it means tx and rx are inhibited
+                               Math.floor(numbits * CPU_FREQ / baud + 0.5);
+        return ticks;
+    }
+
+    // return the number of ticks to rx/tx transfer one byte
+    function byteToTicks() {
+        var startbits = 1;  // FIXED
+        var databits = 8;   // FIXED
+        var stopbits = (rate & 0x80) ? 1 : 2;
+        return bitsToTicks(startbits + databits + stopbits);
+    }
+
     // this gets called by the currently selected serial device
     // any time it receives a character
     function rxSerial(byteval, framingError) {
@@ -177,11 +238,6 @@ var tms5501 = (function () {
 
     // this is called when the currently selected serial device
     // when it has disposed of the most recently sent txdata byte
-    // TBD: the 5501 manual mentions that bit 5 of the interrupt mask
-    //      corresponds to "tx buffer emptied" -- it sounds like it
-    //      is set only on transition from full to empty, but then
-    //      it is unclear when intStatus[5] gets cleared.  for now,
-    //      it is implemented as if it is the same as xmit buffer empty.
     function txSerialReady() {
         assert(txdataCount > 0,
                'txSerialReady() called with txdataCount == 0');
@@ -202,8 +258,14 @@ var tms5501 = (function () {
         }
 
         sstatus |= 0x10;       // xmit buffer empty
-        intStatus |= 0x20;     // serial character sent
+        intStatus |= 0x20;     // xmit buffer empty
         checkInterruptStatus();
+    }
+
+    // after a byte is transmitted, drain it from the shift register
+    function serialTxCallback() {
+        txCallbackTimer = undefined;
+        txSerialReady();
     }
 
     // read a device register
@@ -227,25 +289,29 @@ var tms5501 = (function () {
             break;
 
         // read parallel input port
+        // in fact, the floppy doesn't return any status
         case 0x1:
-            if (keyboardSelected()) {
-                // data from keyboard connection J-1
-                var op = outport;
-                retval = (op & 0x80) ? keybrd.matrix(16) :
-                                       keybrd.matrix(op & 0xF);
-            } else if (floppy0Selected()) {
-                // data from selected floppy disk CD0:
-                retval = floppy[0].getStatus();
-            } else if (floppy1Selected()) {
-                // data from selected floppy disk CD0:
-                retval = floppy[1].getStatus();
-            } else {
-                // == 3 is ??
-                retval = 0x00; // FIXME: not modeled
+            // data from keyboard connection J-1
+            retval = keybrd.matrix(outport & 0xF);
+            // the hardware unconditionally merges in the keyboard mode
+            // keys if output bit 7 is set
+            if (outport & 0x80) {
+                retval = (0x0F & retval) |
+                         (0xF0 & keybrd.matrix(16));
             }
             break;
 
-        // read interrupt address on TMS 5501; clear after reading
+        // "2.2.3 Read interrupt address
+        //
+        //  Addressing the read interrupt address function transfers the
+        //  current highest priority interrupt address onto the data bus as
+        //  read data.  After the read operation is completed, the
+        //  corresponding bit in the interrupt register is reset.
+        //
+        //  If the read-interrupt-address function is addressed when there is
+        //  no interrupt pending, a false interrupt address will be read.  TMS
+        //  5501 status function should be addressed in order to determine
+        //  whether or not an interrupt condition is pending."
         case 0x2:
             retval = getIntAddr();
             if (retval) {
@@ -256,9 +322,19 @@ var tms5501 = (function () {
             break;
 
         // read status
+        // bit 2 is somewhat problematic.  it is supposed to reflect the
+        // current state of the rx line and can be used for detecting
+        // breaks and such.
         case 0x3:
+            if (serialSelected()) {
+                // this isn't modeled; just lie and say nothing is received
+                // and we are ready to transmit
+                retval = 0x14;
+            } else {
+                retval = sstatus;
+            }
             // bit 5 indicates if there is an unmasked interrupt pending
-            retval = (sstatus & ~0x20) |
+            retval = (retval & ~0x20) |
                      ((intMask & intStatus) ? 0x20 : 0x00);
             if (0 && floppy_dbg) {
                 console.log('T' + ccemu.getTickCount() +
@@ -314,6 +390,11 @@ var tms5501 = (function () {
                 //        but it doesn't affect the tx buffer itself
                 // the interrupt reg is cleared,
                 // except tx buffer empty is set high
+                if (txCallbackTimer) {
+                    txCallbackTimer.cancel();
+                    txCallbackTimer = undefined;
+                }
+                txdataCount = 0;
                 intStatus = 0x20;  // tx buffer empty interrupt
             }
             // because the serial port isn't modeled, the break bit is
@@ -324,13 +405,18 @@ var tms5501 = (function () {
                 audio.breakEvent((value >> 1) & 1);
             }
             // bit 2: interrupt 7 select
-            // FIXME: I assume this is only programmed to 0 (use timer #5)
-            //        not data input bit 7 L->H transition as interrupt
-            //        trigger
+            // I assume this is only programmed to 0 (use timer #5)
+            // not data input bit 7 L->H transition as interrupt trigger.
+            // Bit 7 corresponds to the caps lock state.
+            if (value & 0x04) {
+                alert("Emulator modeling error: dscCmd & 0x04");
+            }
             // bit 3: interrupt acknowledge enable
-            //        1=accept int ack
-            //        0=ignore int ack
-            //        FIXME: should this be modeled?
+            //    1=accept int ack
+            //    0=ignore int ack
+            //    FIXME: should this be modeled?
+            //           in normal operation, the ccII will have this bit
+            //           set, but what if some program messes with it?
             // bit 4: test control; normally low
             // bit 5: test control; normally low
             // bit 6: unused
@@ -343,11 +429,19 @@ var tms5501 = (function () {
             break;
 
         // transmit serial data out to J-2
-        // TBD: do we need to model a 1 deep fifo?  that is a tx buffer
-        //      register and a serial register?  if not, it imposes a
-        //      strict timing requirement on the 8080 to stuff the next
-        //      byte very quickly to prevent gaps between bytes.
-        //      the existing
+        // The TMS5501 block diagram make it clear there is a tx data buffer
+        // register which feeds a tx shift-out register; in effect, the tx data
+        // buffer is a one byte FIFO.  This means the line can be kept busy
+        // without having gap between the end of one byte and the start of the
+        // next due to the interrupt latency and processing time to reload the
+        // tx buffer.
+        //
+        // This fact is further reinforced by the comment in section 2.2.4
+        // about bit 4 of the status register, "transmit buffer empty":
+        //    "A high in bit 4 indicates that the transmitter buffer register
+        //    is empty and ready to accept a character.  Note, however, that
+        //    the serial transmitter regsiter may be in the process shifting
+        //    out a character."
         case 0x6:
             if (0 && floppy_dbg) {
                 console.log('T' + ccemu.getTickCount() +
@@ -357,7 +451,7 @@ var tms5501 = (function () {
                            );
             }
 
-            // but it in the buffer
+            // put it in the buffer
             txdata = value;
             txdataCount++;
 
@@ -367,6 +461,8 @@ var tms5501 = (function () {
                 txdataCount = 2;
             }
             if (txdataCount === 2) {
+                // there is something in the shift register and now the tx
+                // buffer is fill too, so drop the tx buffer empty status
                 sstatus &= ~0x10;       // !xmit buffer empty
                 intStatus &= ~0x20;     // !serial character sent
             }
@@ -381,8 +477,22 @@ var tms5501 = (function () {
                 } else if (floppy1Selected()) {
                     floppy[1].txData(txdata2);
                 } else if (serialSelected()) {
+                    // make a callback to retire the tx byte
+                    var ticks = byteToTicks();
+                    txCallbackTimer = scheduler.oneShot(ticks, serialTxCallback,
+                                                        "txCB");
+                    // send it to the soundware emulation too just in case
                     audio.txData(txdata2);
                 }
+                // it should already be set, but just in case ...
+                sstatus |= 0x10;       // xmit buffer empty
+                // TBD: is the interrupt generated after the byte is sent, or
+                //      any time the TX buffer is empty?  section 1.2 of the
+                //      TMS5501 spec says:
+                //          "Interrupts are also generated when the receive
+                //           buffer is loaded and when the transmitter buffer
+                //           is empty."
+                intStatus |= 0x20;     // transmit buffer empty
             }
             checkInterruptStatus();
             break;
@@ -438,6 +548,10 @@ var tms5501 = (function () {
     //     6th -- transmit buffer emptied
     //     7th -- interval timer #4
     //     8th -- interval timer #5 / or external input XI 7
+    //
+    // the name is a misnomer, but that is what the TMS5501 manual calls it.
+    // really, it returns a one byte 8080 instruction (RST n) which causes a
+    // vector to an interrupt routine.
     function getIntAddr() {
         var masked = (intStatus & intMask);
         var rstOp = (masked & 0x01) ? 0xC7 :   // RST 0
@@ -463,22 +577,30 @@ var tms5501 = (function () {
                      (op === 0xF7) ? ~0x40 :
                      (op === 0xFF) ? ~0x80 :
                                       0xFF;
+
+        // when the first byte is sent to the serial port, the tx buffer
+        // is still considered empty as that first byte immediately transfers
+        // to the serial shift register.  So even if it gets acked, we should
+        // leave it set.
+        if (txdataCount < 1) {
+            intStatus |= 0x20;
+        }
     }
 
-    // FIXME: this is called only when some state has changed
-    //        however, if we request an interrupt and the 8080
-    //        returns false to takeInterrupt() because interrupts are
-    //        disabled, we should retry every cycle until either the
-    //        interrupt conditions is cleared or the 8080 accepts it.
+    // this is called any time the interrupt request state might have
+    // changed so the cpu can be notified
     function checkInterruptStatus() {
-        if (intStatus & intMask) {
-            var rstOp = getIntAddr();
-            if (rstOp) {
-                if (cpu.takeInterrupt(rstOp)) {
-                    clearIntAddr(rstOp);
-                }
-            }
-        }
+        var int_pending = (intStatus & intMask) !== 0;
+        cpu.irq(int_pending);
+    }
+
+    // when the cpu takes an interrupt, it causes the 5501 to output
+    // a one byte "RST n" instruction, and the 5501 then clears the
+    // corresponding interrupt flag
+    function getIntVector() {
+        var rstOp = getIntAddr();
+        clearIntAddr(rstOp);
+        return rstOp;
     }
 
     // expose public members:
@@ -489,7 +611,8 @@ var tms5501 = (function () {
         'tick64us':               tick64us,
         'rxSerial':               rxSerial,
         'txSerialReady':          txSerialReady,
-        'triggerExternalSensor':  triggerExternalSensor
+        'triggerExternalSensor':  triggerExternalSensor,
+        'getIntVector':           getIntVector
     };
 
 }());  // tms5501

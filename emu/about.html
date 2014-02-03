@@ -1,24 +1,21 @@
 <!DOCTYPE html>
 <html lang="en">
-
-<title>About the JavaScript Compucolor II Emulator</title>
-
 <head>
-<link rel="stylesheet" type="text/css" href="ccemu.css" />
+<meta http-equiv="Content-Type" content="text/html;charset=utf-8" />
+<title>About the JavaScript Compucolor II Emulator</title>
+<link rel="stylesheet" type="text/css" href="css/ccemu.css" />
 <style>
     body { background-color: #f4f4f4; }
     div#wrapper { margin: 6px; max-width:45em; }
     li { margin-bottom:1em; }
     ul.changes li { margin-bottom:0; }
     h1 { margin-bottom:0; }
-    .version { text-align:center; }
 </style>
 </head>
 <body>
 <div id="wrapper">
 
 <h1>About the Compucolor II Emulator</h1>
-<p class="version">Version 2013.12.01</p>
 
 <p>
 This emulator is written in javascript, and makes use of some fairly
@@ -70,6 +67,22 @@ the work and encouragement of others.
         size made me realize that perhaps it wasn't as big of a job as
         I had feared; I began writing this emulator a couple days later.
     </li>
+</ul>
+
+<h3>Version 2014.02.03</h3>
+
+<p>This release benefited greatly from Garry Epps' massive help in
+spotting modeling problems, reverse engineering some misbehaving programs,
+and writing incisive test programs.</p>
+
+<ul class="changes">
+    <li>Overhauled the keyboard event handling and mapping.  N-key rollover
+        is implemented now, allowing for faster typing and use of games
+        which require multiple keys to be held down simultaneously.</li>
+    <li>Implemented basic, extended, and deluxe virtual keyboard layouts</li>
+    <li>Fixed some bugs in the 8080 and TMS 5501 interrupt handling</li>
+    <li>Moved the "Help" and "About" links to a more discoverable location</li>
+    <li>Various implementation improvements</li>
 </ul>
 
 <h3>Version 2013.12.01</h3>

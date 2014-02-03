@@ -7,23 +7,52 @@ body
 h1
 {
     text-align:center;
+    margin-bottom:0;  /* want the Help and About links to hang tight */
+}
+
+p.dateline
+{
+    text-align: center;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+div.helplinks
+{
+    text-align:center;
+    margin-bottom:1em;
 }
 
 div#controls
 {
-    float:left;
+    float: left;
+    background-color: #e4e4e4;
+    border: solid 2px #d8d8d8;
+    border-radius: 8px;
+    padding: 6px;
 }
 
 div#controls p
 {
     margin-top:4px;
-    margin-bottom:4px;
+    margin-bottom:4px;  /* push CRT down a bit */
 }
 
 /* all buttons in the group the same width */
 .but1
 {
     width:8em;
+}
+
+/* indent controls a bit relative to its heading */
+#controls select
+{
+    margin-left: 1em;
+}
+
+#controls div.radios input:first-child
+{
+    margin-left: 1em;
 }
 
 /* opera doesn't allow programmatically sending clicks to a
@@ -102,32 +131,55 @@ div.soundware
 
 #virtualkeyboard 
 {
+    font-size:8px;  /* inherited by children */
     clear:both;
-    margin-top:3em;
     display:none;
+    margin-top:2em;
 }
 
 #virtualkeyboard button
 {
-    font-size:9px;
     height:5.5em;
     width:5.5em;
-    padding:0;
-    color:#fff;
     border-radius:8px;
+    outline: none;  /* prevent focus ring in webkit */
 }
 
-button#black    { background-color:#000; }
-button#blue     { background-color:#00f; }
-button#red      { background-color:#f00; }
-button#magenta  { background-color:#f0f; }
-button#green    { background-color:#0f0; color:#000; }
-button#cyan     { background-color:#0ff; color:#000; }
-button#yellow   { background-color:#ff0; color:#000; }
-button#white    { background-color:#fff; color:#000; }
-button.fcn      { background-color:rgb(191,177,130); }
-button.norm     { background-color:rgb(171,138,104); }
-button.rstrow   { background-color:rgb(167,30,8); }
+/* single letter primary key caps */
+#virtualkeyboard button span.big
+{
+    font-size:11px;
+}
+
+/* multi-letter primary key caps - bigger than default, smaller than .big */
+#virtualkeyboard button span.big2
+{
+    font-size:9px;
+}
+
+#virtualkeyboard button:active,
+#virtualkeyboard button.active
+{
+    border-style:inset;
+    padding: 0px 4px 4px 0px;
+}
+
+#virtualkeyboard button.return { width:11em; }
+
+button.black    { background-color:#000000; color:#ffffff; }
+button.blue     { background-color:#0000f0; color:#ffffff; }
+button.red      { background-color:#f00000; color:#ffffff; }
+button.magenta  { background-color:#f000f0; color:#ffffff; }
+button.green    { background-color:#00dd00; color:#000000; }
+button.cyan     { background-color:#00f0f0; color:#000000; }
+button.yellow   { background-color:#eeee00; color:#000000; }
+button.white    { background-color:#f8f8f8; color:#000000; }
+button.fcn      { background-color:#bfb182; color:#ffffff; }
+button.norm     { background-color:#ab8a68; color:#ffffff; }
+button.rstrow   { background-color:#a71e08; color:#ffffff; }
+button.arrow    { background-color:#888888; color:#ffffff; }
+button.return   { background-color:#505050; color:#ffffff; }
+button.nkgreen  { background-color:#5a8c5a; color:#ffffff; }
 
 /* ======================== floppy disk interface ======================== */
 

@@ -33,7 +33,7 @@ function pad(str, n) {
   return r.join("");
 };
 
-function Cpu(raw_ram, rd_func, wr_func, input_func, output_func)
+function Cpu(raw_ram, rd_func, wr_func, input_func, output_func, intvec_func)
 {
   // cache/localize resource accessor functions
   this.ram    = raw_ram;      // should only be used by the disassembler
@@ -41,6 +41,7 @@ function Cpu(raw_ram, rd_func, wr_func, input_func, output_func)
   this.wr     = wr_func;
   this.input  = input_func;
   this.output = output_func;
+  this.intvec = intvec_func;
   this.reset();
 
   // pick a style of disassembly you prefer
@@ -67,6 +68,7 @@ Cpu.prototype.reset = function () {
   this.pc = 0;
   this.sp = 0x0000;
   this.halted = false;
+  this.intpending = false;
 };
 
 Cpu.prototype.af = function() {
@@ -325,19 +327,26 @@ Cpu.prototype.push = function(v) {
 // on interrupt, the interrupting device has to supply an interrupt
 // vector (in real life, it could supply any one byte instruction,
 // but typically it is an "RST n" operation.
-Cpu.prototype.takeInterrupt = function(op) {
-  if (this.f & Cpu.INTERRUPT) {
-    this.halted = false;
-    this.execute(op);
-    return true;  // taken
-  }
-  return false;  // not taken
-};
+Cpu.prototype.irq = function(req) {
+  this.intpending = req;
+}
 
-// returns false for HALT and illegal instr., else returns true
+// execute one instruction, and returns the number of cycles it took
 Cpu.prototype.execute = function(i) {
-  var cycles;
-  if (this.halted) {
+  var cycles, op;
+  if (this.intpending && (this.f & Cpu.INTERRUPT)) {
+    // take an interrupt
+    this.halted = false;
+    this.f &= ~Cpu.INTERRUPT;  // disable interrupt
+    // the routine which called this one has already incremented the PC.
+    // undo it so it will be fetched again after the ISR.
+    this.pc = (this.pc - 1) & 0xFFFF;
+    // this.intpending isn't automatically cleared because it is the job of
+    // intvec() to evalute if more interrupts are pending and call cpu.irq()
+    // with the new status
+    op = this.intvec();         // fetch RST n
+    cycles = this.execute(op);  // do it
+  } else if (this.halted) {
     // just burn time until either reset or an interrupt
     cycles = 4;
   } else switch(i) {

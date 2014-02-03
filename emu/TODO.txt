@@ -1,33 +1,42 @@
 ----- emulator changes list -----
 
-changes post 2013-11-30:
+changes since the last official release:
 
-* added soundware emulation for platforms which support the AudioContext API
+* Overhauled the keyboard logic to better handle the case when more than one
+  key is down at the same time.  This prevents key loss when typing quickly,
+  and helps in certain games which do realtime scanning of the keyboard
+  matrix to detect which keys are are up or down at a given time.
 
-* exposed the ROM version dialog box, as it turns out there are a few
-  disks which require v8.79 ROMs
+* The virtual keyboard now implements the full keyboard, not just the odd
+  keys.  In theory, the emulator is now usable on a touchpad device.
+  A new pulldown allows choosing the keyboard layout.
 
-* for the sake of the website, the emulator now looks for these parameters
-  in the URI string:
-     cd0=../vmedia/somedisk-sector.ccvf  (default state is an empty drive)
-     cd1=../vmedia/somedisk-sector.ccvf  (default state is an empty drive)
-     rom=v6.78                           (this is the default state)
-     rom=v8.79
-     auto=0                              (this is the default state)
-     auto=1              (triggers an AUTO keypress 3 seconds after reset)
-  this allows launching the emulator with a specified disk and ROM
-  configuration, and even launching the auto menu.bas program
+* Fixed some bugs in the 8080 and TMS 5501 interrupt handling logic
 
-* added a new disk to the pulldown list: BLANK (just a formatted disk)
+* moved the Help and About links to a more easily discovered location
 
-* added back sector-level floppy disk suport
+* (plumbing) Events are now delegated from the enclosing div, instead of
+  having event handlers for each virtual key.
 
 ----- emulator TODO list -----
 
+add cookies/persistent state for the emulator configuration
+
+generate a warning if navigating away from a disk with modified state
+
+add joystick emulation (garry epps sent some notes on the model)
+
+garry epps points out that in his space invaders clone (invaders_epps.ccvf)
+that the shift keys are supposed to fire but don't.  I found that they
+fire if caps lock is active, but don't fire if not.  is this an emulator
+bug or a game bug?
+
 soundware emulation corner case:
-    taylor_2.ccvf, STREK2.BAS invokes XXXXXX.BAS, which seems
+    taylor/taylor_2.ccvf, STREK2.BAS invokes XXXXXX.BAS, which seems
     like it is printing character strings and such to the serial port
     in order to generate audio.
+
+allow emulator to read .zip files?
 
 fix for peter's RPM.PRG?
     He triggers on the "start bit seen" status bit, rather than the rx data
@@ -51,6 +60,10 @@ fix for peter's RPM.PRG?
         other/modified_utilities.ccvf has SPEEDO.PRG, which is tailored for
             v8.79 (4-phase) machines
 
+taylor_7.ccvf has the program "FMTCD1" to format the disk in drive 1.
+However, it fails to verify after formatting and gives up after three
+tries.  Figure out what it is unhappy.
+
 The capture disk in box_14/asm_programs.ccvf contains a bunch of different
 character sets expressed as lists of bytes.  could be useful.
 
@@ -69,7 +82,3 @@ one-shot times out each 1 ms, and then 64 or 128 refresh cycles are performed.
 "refresh requires 32 us (64 us for 128 cycles) for completion."
 When the floppy is transferring data, 64 uS represents about five bit times.
 So refresh could add jitter of this magnitude during reads and writes.
-
-javascript modal boxes:
-    http://www.ericmmartin.com/projects/simplemodal-demos/
-    http://leanmodal.finelysliced.com.au/#

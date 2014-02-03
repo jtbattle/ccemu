@@ -36,6 +36,10 @@ var autotyper = (function () {
 
     'use strict';
 
+    // set to true if the auto typer should simulate one keypress at a time.
+    // otherwise, it will stuff a line at a time, which is much faster.
+    var key_at_a_time = false;
+
     // state
     var text = '',    // the text we are streaming
         offset = -1,  // next char ptr (<0 means not running)
@@ -247,8 +251,8 @@ var autotyper = (function () {
 
     // this needs to be called periodically to check if the
     // keyboard input routine is ready for more
-    var poll = (0) ? pollKeyStuff :
-                     pollLineStuff;
+    var poll = (key_at_a_time) ? pollKeyStuff :
+                                 pollLineStuff;
 
     // expose public members:
     return {

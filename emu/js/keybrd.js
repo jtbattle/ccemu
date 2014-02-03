@@ -1,4 +1,4 @@
-// Copyright (c) 2013, Jim Battle
+// Copyright (c) 2013-2014, Jim Battle
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -28,45 +28,99 @@
 
 // Problem #1:
 //
-//    Browsers are inconsistent in their encoding of key events, both
-//    keydown and keypress.  See http://unixpapa.com/js/key.html or
-//    google a bit to find more.
+//    Browsers are inconsistent in their encoding of key events, both keydown
+//    and keypress.  See http://unixpapa.com/js/key.html or google a bit to
+//    find more.
 //
-//    The approach here is to use keypress for the key combinations where it
-//    is reliable, and then use keydown for everything else.  The reliable
-//    keys are:
-//        a-z, shift a-z
-//        0-9, shift 0-9  (what these map to depends on the keyboard!)
+//    What we care to know is when a given key is depressed and when it is
+//    released, so that can be mapped onto the ccII keyboard matrix.  The
+//    javascript "keydown" event is mostly what we want, but it isn't complete.
+//    It provides an encoding of which key has gone done, and it also provides
+//    any associated modal state: shift, control, alt.  However, it doesn't
+//    provide the state of the CapsLock key, nor does it tell us which logical
+//    key the user has pressed: for instance, SHIFT+"2" might be "@" or it
+//    might be the double quote character ("), depending on the use keyboard.
+//    So for such keys we have to wait for the keypress event, which does give
+//    the encoded value.
+//
+//    So why not use keypress all the time?  It won't work because not all
+//    browsers fire the event for all keys.  For example, IE, FF, and Opera
+//    report ESC with a keypress event, but safari and chrome don't.  Function
+//    keys produce a keypress event in FF and opera, but not IE, chrome, and
+//    safari.
+//
+//    The keys where all browsers generate a keypress event are:
+//        letters (a-z), numbers (0-9), punctuation, space, enter
 //    Everything else is handled by keydown.  Note that the keydown event
 //    happens before the keypress event, and in some browsers (IE, webkit)
 //    canceling the default keydown behavior cancels the subsequent keypress.
 //
+//    In the future, one hopes the event.key property is supported, in which
+//    case everything could be handled uniformly in the onkeydown event handler,
+//    with no need for the keypress event handler.  As of Jan 2014, IE supports
+//    it while deviating from the proposed standard; Firefox 26 not only
+//    deviates from the standard but currently only for non-printable keys;
+//    Chrome doesn't support it at all; Safari is probably like Chrome.
+//
 // Problem #2:
 //
-//    The compucolor keyboard has a very different layout from a standard
-//    PC, and has many compucolor-specific keys.  The PC has some keys that
-//    don't have a natural mapping to the compucolor.  Also, "=" is a shifted
-//    key on the compucolor but not on a standard US PC keyboard, so we
-//    sometimes have to lie and override those modifier keys.
+//    The compucolor keyboard has a very different layout from a standard PC,
+//    and has many compucolor-specific keys.  The PC has some keys that don't
+//    have a natural mapping to the compucolor.  Also, "=" is a shifted key on
+//    the compucolor but not on a standard US PC keyboard, so we sometimes have
+//    to lie and override the modifier keys.
 //
 // Problem #3:
 //
 //    The compucolor has a number of keys that don't have a PC equivalent,
-//    eg, the "repeat" key, the "erase page" and "erase line" keys, "AUTO",
+//    e.g., the "repeat" key, the "erase page" and "erase line" keys, "AUTO",
 //    "BLINK ON", "BL/A7 OFF", "A7 ON", etc.
 //
-//    Not all keys are available with lower end compucolor machines, so
-//    part of the solution is to ignore the ones we can, but there are
-//    still many that aren't easily mapped.  We could artificially map
-//    some of them to unique PC keyboard keys, like "PAUSE/BREAK", but
-//    that is hard for the user to deal with.  So probably the best
-//    solution is to graphically present those keys and allow the user
-//    to hit them with the mouse button.
+//    Not all keys are available with lower end compucolor machines, so part of
+//    the solution is to ignore the ones we can, but there are still many that
+//    aren't easily mapped.  We could artificially map some of them to unique
+//    PC keyboard keys, like "PAUSE/BREAK", but that is hard for the user to
+//    deal with.
 //
-// Rather than polling the keyboard state every time the emulated CPU
-// accesses an I/O port, instead every time there is a PC key up/down
-// event, we note it and then translate that to the 17 rows of CC-II
-// keyboard state.
+//    The emulator also has a "virtual keyboard" with a clickable visual
+//    representation of the full keyboard.  It is a monster, though.
+//
+// Problem #4:
+//
+//    The state of the keyboard Caps Lock key can't always be known.  Pressing
+//    the key produces keydown and keyup events, but since its action is a
+//    toggle, it can't be known directly if it active or not.  IE and Firefox
+//    do report the state of the caps lock key when other key events are
+//    reported; Chrome doesn't currently support getModifierState() with
+//    'CapsLock', but there is no reliable way to tell which browser supports
+//    it or not (short of browser sniffing).  This program tries to use
+//    getModifierState(), and can figure it out when alphabetic keys are
+//    pressed, but otherwise must assume it isn't set.
+//
+//    Related to this, keyup events can get lost.  For instance, on Firefox
+//    (and maybe other browsers), pressing the shift key down produces a keydown
+//    event with a keycode of 16.  Then pressing the "A" key produces a keydown
+//    even with a keycode of 65 and a keypress event with a charcode of 65.  If
+//    these keys remain held down, a stream of keydown/keypress events with the
+//    same values as the ones above are created, one for each autorepeat action
+//    of the key.  But if the shift key is released and the "A" key remains
+//    down, no keyup (with keycode=16) is generated.  After a short delay, a
+//    stream of keydown/keypress events for "a" begins until the A key is
+//    released.  This can confuse the caps key detection heuristic used by
+//    the emulator for browsers which don't report getModiferState('CapsLock').
+//
+// Problem #5:
+//
+//    Browsers intercept some keys for their own purposes, and each browser
+//    does it differently.  For instance, Firefox lets the emulator capture the
+//    Ctrl-N key, but Chrome instead catches it first and opens up a new
+//    browser.  In full screen mode, <ESC> causes the browsers to exit full
+//    screen mode; in Firefox Ctrl-[ can be used to work around it; in Chrome,
+//    Ctrl-[ also causes full screen mode to exit.
+//
+// Rather than polling the keyboard state every time the emulated CPU accesses
+// an I/O port, instead every time there is a PC key up/down event, we note it
+// and then translate that to the 17 rows of CC-II keyboard state.
 
 // option flags for jslint:
 /* global alert */
@@ -78,154 +132,136 @@ var keybrd = (function () {
 
     // choose how to emulate the cc-II "repeat" key.
     // this is not exposed in order to simplify the UI.
-    var repeatMode = ['none', 'auto', 'alt'][1];
+    //    never  -- no repeat
+    //    always -- as if the ccII "repeat" key is always down -- too fast!
+    //    auto   -- use the PC's native autorepeat
+    //    alt    -- use the PC's ALT button as the emulated REPEAT button
+    var repeatMode = ['never', 'always', 'auto', 'alt'][2];
 
-    // encoded CC-II keyboard matrix state
-    // [16] corresponds to the special decode for shift/control/repeat/capslock
-    var kbMatrix = [];
+    // The variable "capslock_detectable" is undefined by default.  If at some
+    // point getModiferState("capsLock") returns true, then capslock_detectable
+    // will be set true.  If, during processing an alphabetic character in the
+    // keypress handler, the heuristic determines that capslock must be active
+    // yet getModifierState("CapsLock") is false, capslock_detectable is set
+    // false.  So, in summary, we might belatedly figure out if getModifierState
+    // is supported.
+    var capslock_detectable;
 
-    // which PC keys are currently held down
-    var ksh = 256;          // keyboard shift encoding
-    var isDown = [];        // true if we think this key is currently depressed
-    var prevKeydown;        // most recently seen keydown keyCode
-    var pcKey = [];         // map event keycode to logical meaning
-    var ccKey = {};         // map meaning to compucolor encoding
-    var asciiToCcKey = [];  // map ascii values to cc key + modifiers
-    var modalKeys = {};     // names for the modifier keys
-    var useKeypress = [];
+    //========================================================================
+    // static mapping state
+    //========================================================================
 
-    function buildTables() {
+    // different key representations:
+    //     keyCode:
+    //         PC key encoding from javascript onkeydown/onkeyup
+    //     charCode:
+    //         PC key encoding from javascript onkeypress which is
+    //         somewhat like keyCode but takes into account the state
+    //         of the shift and capslock keys
+    //     logical name:
+    //         Key meaning -- the ascii name for ascii characters, eg
+    //         '1', '!', 'a', and 'A', but also things like 'home'
+    //     ccKeyName:
+    //         The name of the ccIIkeyboard base key.  Often it coincides
+    //         with the logical name, eg 'esc', 'home', 'A', '1', but
+    //         diverges in that the shifted values aren't represented,
+    //         eg, 'A' is used in place of 'a'.  This representation is
+    //         used where we want to refer to a concrete ccII key, not
+    //         the logical meaning of the key.
+    //     ccII base key matrix encoding:
+    //         they row and bit encoding on the hardware scanning keyboard
+    //         matrix
 
-        // don't complain that (e.g.) ccKey["A"] should be ccKey.A
-        /* jshint sub: true */
+    var keycodeToLogical = [];   // map event keycode to logical meaning
+    var keycodeToLogical2 = [];  // same, but for learned keys
+    var ccKeyToMatrix = {};      // map meaning to compucolor encoding
+    var ccKeyShift = {};         // keys with shift state different from PC's
+    var asciiToCcKey = [];       // map ascii values to cc key + modifiers
 
-        // unfortunately, ff uses different keyevent numbering than
-        // all the other browsers for a few keys.  so we sniff.
-        var ff = /firefox/i.test(navigator.userAgent);
-
-        // ----- make a table of which keys we should use keypress;
-        //       the rest are handled by keydown.  thankfully, the event
-        //       codes for these characters match their ascii values.
-
-        var keypressKeys = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
-                           '0123456789';
-        for (var n = 0; n < keypressKeys.length; n++) {
-            useKeypress[keypressKeys.charCodeAt(n)] = true;
-        }
-
-        // ----- map javascript event keycode key meaning
-
-        modalKeys = {
+    // which logical key names correspond to mode keys
+    var modalKeys = {
             'shft': true,
             'ctrl': true,
             'alt': true,
             'capslock': true
         };
 
+    function buildTables() {
+        /* jshint sub: true */
+        // don't complain that (e.g.) foo["A"] should be foo.A
+
+        // ----- map javascript event keycode to logical key name.
+        //       this is just the subset which can't be determined
+        //       from their ascii values.
+
         // modal keys
-        pcKey[ 16] = 'shft';
-        pcKey[ 17] = 'ctrl';
-        pcKey[ 18] = 'alt';
-        pcKey[ 20] = 'capslock';
+        keycodeToLogical[ 16] = 'shft';
+        keycodeToLogical[ 17] = 'ctrl';
+        keycodeToLogical[ 18] = 'alt';
+        keycodeToLogical[ 20] = 'capslock';
 
         // various non-textual characters
-        pcKey[  8] = 'bksp';   // backspace
-        pcKey[  9] = 'tab';    // tab
-        pcKey[ 13] = 'cr';     // carriage return
-        pcKey[ 27] = 'esc';    // escape
-        pcKey[ 32] = ' ';
-        pcKey[ 36] = 'home';
-        pcKey[ 37] = 'curlft';
-        pcKey[ 38] = 'curup';
-        pcKey[ 39] = 'currgt';
-        pcKey[ 40] = 'curdwn';
+        keycodeToLogical[  8] = 'bksp';   // backspace
+        keycodeToLogical[  9] = 'tab';    // tab
+        keycodeToLogical[ 13] = 'cr';     // carriage return
+        keycodeToLogical[ 27] = 'esc';    // escape
+        keycodeToLogical[ 36] = 'home';
+        keycodeToLogical[ 37] = 'curlft';
+        keycodeToLogical[ 38] = 'curup';
+        keycodeToLogical[ 39] = 'currgt';
+        keycodeToLogical[ 40] = 'curdwn';
 
-//      pcKey[  3] = 'reset';  // pause/break + ctrl
-//      pcKey[ 19] = 'reset';  // pause/break
-        pcKey[  3] = 'break';  // pause/break + ctrl
-        pcKey[ 19] = 'break';  // pause/break
+        keycodeToLogical[  3] = 'break';  // pause/break + ctrl
+        keycodeToLogical[ 19] = 'break';  // pause/break
 
         // keys on the PC keyboard that don't have a natural mapping
         // to the CC-II.
-    //  pcKey[      33] = "pgup";
-    //  pcKey[      34] = "pgdn";
-        pcKey[      35] = 'break';       // END key
-    //  pcKey[      44] = "prntscrn";
-        pcKey[      45] = "insert";
-        pcKey[      46] = "delete";
-    //  pcKey[     144] = "numlock";
-    //  pcKey[     145] = "scrolllock";
+    //  keycodeToLogical[ 33] = "pgup";
+    //  keycodeToLogical[ 34] = "pgdn";
+        keycodeToLogical[ 35] = 'break';       // END key
+    //  keycodeToLogical[ 44] = "prntscrn";
+        keycodeToLogical[ 45] = "insert";
+        keycodeToLogical[ 46] = "delete";
+    //  keycodeToLogical[144] = "numlock";
+    //  keycodeToLogical[145] = "scrolllock";
 
-        pcKey[     112] = 'F1';
-        pcKey[     113] = 'F2';
-        pcKey[     114] = 'F3';
-        pcKey[     115] = 'F4';
-        pcKey[     116] = 'F5';
-        pcKey[     117] = 'F6';
-        pcKey[     118] = 'F7';
-        pcKey[     119] = 'F8';
-        pcKey[     120] = 'F9';
-        pcKey[     121] = 'F10';
-        pcKey[     122] = 'F11';
-        pcKey[     123] = 'F12';
-
-        pcKey[      188] = ',';
-        pcKey[ksh + 188] = '<';
-        pcKey[      190] = '.';
-        pcKey[ksh + 190] = '>';
-        pcKey[      191] = '/';
-        pcKey[ksh + 191] = '?';
-    //  pcKey[      192] = "`";
-    //  pcKey[ksh + 192] = "~";
-        pcKey[      219] = '[';
-    //  pcKey[ksh + 219] = "{";
-        pcKey[      220] = '\\';
-    //  pcKey[ksh + 220] = "|";
-        pcKey[      221] = ']';
-    //  pcKey[ksh + 221] = "}";
-        pcKey[      222] = "'";
-        pcKey[ksh + 222] = '"';
+        keycodeToLogical[112] = 'F1';
+        keycodeToLogical[113] = 'F2';
+        keycodeToLogical[114] = 'F3';
+        keycodeToLogical[115] = 'F4';
+        keycodeToLogical[116] = 'F5';
+        keycodeToLogical[117] = 'F6';
+        keycodeToLogical[118] = 'F7';
+        keycodeToLogical[119] = 'F8';
+        keycodeToLogical[120] = 'F9';
+        keycodeToLogical[121] = 'F10';
+        keycodeToLogical[122] = 'F11';
+        keycodeToLogical[123] = 'F12';
 
         // numeric keypad
-        pcKey[  96] = 'num0';
-        pcKey[  97] = 'num1';
-        pcKey[  98] = 'num2';
-        pcKey[  99] = 'num3';
-        pcKey[ 100] = 'num4';
-        pcKey[ 101] = 'num5';
-        pcKey[ 102] = 'num6';
-        pcKey[ 103] = 'num7';
-        pcKey[ 104] = 'num8';
-        pcKey[ 105] = 'num9';
-        pcKey[ 107] = 'num+';
-        pcKey[ 109] = 'num-';
-        pcKey[ 106] = 'num*';
-        pcKey[ 111] = 'num/';
-        pcKey[ 110] = 'num.';
+        keycodeToLogical[ 96] = 'num0';
+        keycodeToLogical[ 97] = 'num1';
+        keycodeToLogical[ 98] = 'num2';
+        keycodeToLogical[ 99] = 'num3';
+        keycodeToLogical[100] = 'num4';
+        keycodeToLogical[101] = 'num5';
+        keycodeToLogical[102] = 'num6';
+        keycodeToLogical[103] = 'num7';
+        keycodeToLogical[104] = 'num8';
+        keycodeToLogical[105] = 'num9';
+        keycodeToLogical[107] = 'num+';
+        keycodeToLogical[109] = 'num-';
+        keycodeToLogical[106] = 'num*';
+        keycodeToLogical[111] = 'num/';
+        keycodeToLogical[110] = 'num.';
 
-        if (ff) {
-            pcKey[       59] = ';';
-            pcKey[ksh +  59] = ':';
-            pcKey[       61] = '=';
-            pcKey[ksh +  61] = '+';
-            pcKey[      173] = '-';
-            pcKey[ksh + 173] = '_';
-        //  pcKey[       91] = "winkey";
-        //  pcKey[       93] = "winmenu";
-        } else {
-            pcKey[      186] = ';';
-            pcKey[ksh + 186] = ':';
-            pcKey[      187] = '=';
-            pcKey[ksh + 187] = '+';
-            pcKey[      189] = '-';
-            pcKey[ksh + 189] = '_';
-        }
-
-        // ----- map 256 ascii values to a corrresponding compucolor
-        //       key combination
-        // this was taken from Colorcue Vol 4, No 4, p. 18
-        // however, for A-Z, the table presupposes Caps Lock is active,
-        // so for those keys, the SHIFT state has to be inverted
+        // ----- map all 256 ascii values to a corrresponding compucolor key
+        //       combination
+        // This was taken from Colorcue Vol 4, No 4, p. 18
+        // however, for A-Z, the table presupposes Caps Lock is active;
+        // for those keys, the SHIFT state is inverted relative to the table.
+        // Note that there is some ambiguity: "+" could possibly be represented
+        // by either the main keyboard "+" key or the numeric keypad "+" key.
         var a;
         for (a=0; a<32; a++) {
             asciiToCcKey[a] = {
@@ -256,11 +292,11 @@ var keybrd = (function () {
         for (a=97; a<123; a++) {  // a-z (really graphics codes)
             asciiToCcKey[a] = { key: String.fromCharCode(a-32) };
         }
-        for (a=123; a<127; a++) {
+        for (a=123; a<128; a++) {
             asciiToCcKey[a] = { key: String.fromCharCode(a-32), shft:1 };
         }
 
-        for (a=128; a<159; a++) {
+        for (a=128; a<160; a++) {
             asciiToCcKey[a] = { key: String.fromCharCode(a-64), ctrl:1, shft:1 };
         }
         for (a=160; a<192; a++) {
@@ -275,338 +311,389 @@ var keybrd = (function () {
         }
 
         // ----- map key meaning to compucolor matrix encoding
-        // this maps a key name (which might be an ascii value) to the
-        // compucolor keyboard matrix encoding.  note that this table is
-        // just the root key; control and shift modifiers are external to it.
-        // most of these are documented in a table on pdf page 11 of
-        // "Compucolor II and the TMS 5501.pdf".  However, the table has
-        // two errors, and I discovered what the others map to by hacking
-        // the emulator to activate those other positions and see what is
-        // reported by this short program:
+        // this maps a ccII key name to the compucolor keyboard matrix
+        // encoding.  note that this table is just the root key; control and
+        // shift modifiers are external to it.  most of these are documented in
+        // a table on pdf page 11 of "Compucolor II and the TMS 5501.pdf".
+        // However, the table has two errors, and I discovered what the others
+        // map to by hacking the emulator to activate those other positions and
+        // see what is reported by this short program:
         //
         //    10 INPUT A$:PRINT ASC(A$):GOTO 10
 
-        ccKey['0']    = { row: 15, bit: 0 };
-        ccKey['1']    = { row: 14, bit: 0 };
-        ccKey['2']    = { row: 13, bit: 0 };
-        ccKey['3']    = { row: 12, bit: 0 };
-        ccKey['4']    = { row: 11, bit: 0 };
-        ccKey['5']    = { row: 10, bit: 0 };
-        ccKey['6']    = { row:  9, bit: 0 };
-        ccKey['7']    = { row:  8, bit: 0 };
-        ccKey['8']    = { row:  7, bit: 0 };
-        ccKey['9']    = { row:  6, bit: 0 };
-        ccKey[':']    = { row:  5, bit: 0 };
-        ccKey[';']    = { row:  4, bit: 0 };
-        ccKey[',']    = { row:  3, bit: 0 };
-        ccKey['-']    = { row:  2, bit: 0 };
-        ccKey['.']    = { row:  1, bit: 0 };
-        ccKey['/']    = { row:  0, bit: 0 };
+        ccKeyToMatrix['0']    = { row: 15, bit: 0 };
+        ccKeyToMatrix['1']    = { row: 14, bit: 0 };
+        ccKeyToMatrix['2']    = { row: 13, bit: 0 };
+        ccKeyToMatrix['3']    = { row: 12, bit: 0 };
+        ccKeyToMatrix['4']    = { row: 11, bit: 0 };
+        ccKeyToMatrix['5']    = { row: 10, bit: 0 };
+        ccKeyToMatrix['6']    = { row:  9, bit: 0 };
+        ccKeyToMatrix['7']    = { row:  8, bit: 0 };
+        ccKeyToMatrix['8']    = { row:  7, bit: 0 };
+        ccKeyToMatrix['9']    = { row:  6, bit: 0 };
+        ccKeyToMatrix[':']    = { row:  5, bit: 0 };
+        ccKeyToMatrix[';']    = { row:  4, bit: 0 };
+        ccKeyToMatrix[',']    = { row:  3, bit: 0 };
+        ccKeyToMatrix['-']    = { row:  2, bit: 0 };
+        ccKeyToMatrix['.']    = { row:  1, bit: 0 };
+        ccKeyToMatrix['/']    = { row:  0, bit: 0 };
 
-        ccKey['@']    = { row: 15, bit: 1 };
-        ccKey['A']    = { row: 14, bit: 1 };
-        ccKey['B']    = { row: 13, bit: 1 };
-        ccKey['C']    = { row: 12, bit: 1 };
-        ccKey['D']    = { row: 11, bit: 1 };
-        ccKey['E']    = { row: 10, bit: 1 };
-        ccKey['F']    = { row:  9, bit: 1 };
-        ccKey['G']    = { row:  8, bit: 1 };
-        ccKey['H']    = { row:  7, bit: 1 };
-        ccKey['I']    = { row:  6, bit: 1 };
-        ccKey['J']    = { row:  5, bit: 1 };
-        ccKey['K']    = { row:  4, bit: 1 };
-        ccKey['L']    = { row:  3, bit: 1 };
-        ccKey['M']    = { row:  2, bit: 1 };
-        ccKey['N']    = { row:  1, bit: 1 };
-        ccKey['O']    = { row:  0, bit: 1 };
+        ccKeyToMatrix['@']    = { row: 15, bit: 1 };
+        ccKeyToMatrix['A']    = { row: 14, bit: 1 };
+        ccKeyToMatrix['B']    = { row: 13, bit: 1 };
+        ccKeyToMatrix['C']    = { row: 12, bit: 1 };
+        ccKeyToMatrix['D']    = { row: 11, bit: 1 };
+        ccKeyToMatrix['E']    = { row: 10, bit: 1 };
+        ccKeyToMatrix['F']    = { row:  9, bit: 1 };
+        ccKeyToMatrix['G']    = { row:  8, bit: 1 };
+        ccKeyToMatrix['H']    = { row:  7, bit: 1 };
+        ccKeyToMatrix['I']    = { row:  6, bit: 1 };
+        ccKeyToMatrix['J']    = { row:  5, bit: 1 };
+        ccKeyToMatrix['K']    = { row:  4, bit: 1 };
+        ccKeyToMatrix['L']    = { row:  3, bit: 1 };
+        ccKeyToMatrix['M']    = { row:  2, bit: 1 };
+        ccKeyToMatrix['N']    = { row:  1, bit: 1 };
+        ccKeyToMatrix['O']    = { row:  0, bit: 1 };
 
-        ccKey['P']    = { row: 15, bit: 2 };
-        ccKey['Q']    = { row: 14, bit: 2 };
-        ccKey['R']    = { row: 13, bit: 2 };
-        ccKey['S']    = { row: 12, bit: 2 };
-        ccKey['T']    = { row: 11, bit: 2 };
-        ccKey['U']    = { row: 10, bit: 2 };
-        ccKey['V']    = { row:  9, bit: 2 };
-        ccKey['W']    = { row:  8, bit: 2 };
-        ccKey['X']    = { row:  7, bit: 2 };
-        ccKey['Y']    = { row:  6, bit: 2 };
-        ccKey['Z']    = { row:  5, bit: 2 };
-        ccKey['[']    = { row:  4, bit: 2 };
-        ccKey['\\']   = { row:  3, bit: 2 };
-        ccKey[']']    = { row:  2, bit: 2 };
-        ccKey['^']    = { row:  1, bit: 2 };
-        ccKey['_']    = { row:  0, bit: 2 };
+        ccKeyToMatrix['P']    = { row: 15, bit: 2 };
+        ccKeyToMatrix['Q']    = { row: 14, bit: 2 };
+        ccKeyToMatrix['R']    = { row: 13, bit: 2 };
+        ccKeyToMatrix['S']    = { row: 12, bit: 2 };
+        ccKeyToMatrix['T']    = { row: 11, bit: 2 };
+        ccKeyToMatrix['U']    = { row: 10, bit: 2 };
+        ccKeyToMatrix['V']    = { row:  9, bit: 2 };
+        ccKeyToMatrix['W']    = { row:  8, bit: 2 };
+        ccKeyToMatrix['X']    = { row:  7, bit: 2 };
+        ccKeyToMatrix['Y']    = { row:  6, bit: 2 };
+        ccKeyToMatrix['Z']    = { row:  5, bit: 2 };
+        ccKeyToMatrix['[']    = { row:  4, bit: 2 };
+        ccKeyToMatrix['\\']   = { row:  3, bit: 2 };
+        ccKeyToMatrix[']']    = { row:  2, bit: 2 };
+        ccKeyToMatrix['^']    = { row:  1, bit: 2 };
+        ccKeyToMatrix['_']    = { row:  0, bit: 2 };
 
-        ccKey['F0']   = { row: 15, bit: 3 };
-        ccKey['F1']   = { row: 14, bit: 3 };
-        ccKey['F2']   = { row: 13, bit: 3 };
-        ccKey['F3']   = { row: 12, bit: 3 };
-        ccKey['F4']   = { row: 11, bit: 3 };
-        ccKey['F5']   = { row: 10, bit: 3 };
-        ccKey['F6']   = { row:  9, bit: 3 };
-        ccKey['F7']   = { row:  8, bit: 3 };
-        ccKey['F8']   = { row:  7, bit: 3 };
-        ccKey['F9']   = { row:  6, bit: 3 };
-        ccKey['F10']  = { row:  5, bit: 3 };
-        ccKey['F11']  = { row:  4, bit: 3 };
-        ccKey['F12']  = { row:  3, bit: 3 };
-        ccKey['F13']  = { row:  2, bit: 3 };
-        ccKey['F14']  = { row:  1, bit: 3 };
-        ccKey['F15']  = { row:  0, bit: 3 };
+        ccKeyToMatrix['F0']   = { row: 15, bit: 3 };
+        ccKeyToMatrix['F1']   = { row: 14, bit: 3 };
+        ccKeyToMatrix['F2']   = { row: 13, bit: 3 };
+        ccKeyToMatrix['F3']   = { row: 12, bit: 3 };
+        ccKeyToMatrix['F4']   = { row: 11, bit: 3 };
+        ccKeyToMatrix['F5']   = { row: 10, bit: 3 };
+        ccKeyToMatrix['F6']   = { row:  9, bit: 3 };
+        ccKeyToMatrix['F7']   = { row:  8, bit: 3 };
+        ccKeyToMatrix['F8']   = { row:  7, bit: 3 };
+        ccKeyToMatrix['F9']   = { row:  6, bit: 3 };
+        ccKeyToMatrix['F10']  = { row:  5, bit: 3 };
+        ccKeyToMatrix['F11']  = { row:  4, bit: 3 };
+        ccKeyToMatrix['F12']  = { row:  3, bit: 3 };
+        ccKeyToMatrix['F13']  = { row:  2, bit: 3 };
+        ccKeyToMatrix['F14']  = { row:  1, bit: 3 };
+        ccKeyToMatrix['F15']  = { row:  0, bit: 3 };
 
-        ccKey['break']   = { row: 15, bit: 4 };
-        ccKey['inschar'] = { row: 14, bit: 4 };
-        ccKey['delline'] = { row: 13, bit: 4 };
-        ccKey['insline'] = { row: 12, bit: 4 };
-        ccKey['delchar'] = { row: 11, bit: 4 };
-        ccKey['auto']    = { row: 10, bit: 4 };
-//      ccKey['xxxx']    = { row:  9, bit: 4 };  // the TMS 5501 note has this wrong
-//      ccKey['xxxx']    = { row:  9, bit: 4 };  // chr 6: enters a state where the next keystroke defines fg/bg/blink
-//      ccKey['xxxx']    = { row:  8, bit: 4 };  // the TMS 5501 note has this wrong
-//      ccKey['xxxx']    = { row:  8, bit: 4 };  // chr 7
-        ccKey['home']    = { row:  7, bit: 4 };  // chr 8, home
-        ccKey['tab']     = { row:  6, bit: 4 };  // tab key
-        ccKey['curdwn']  = { row:  5, bit: 4 };  // down arrow
-        ccKey['eline']   = { row:  4, bit: 4 };  // erase line
-        ccKey['epage']   = { row:  3, bit: 4 };  // erase page
-        ccKey['cr']      = { row:  2, bit: 4 };  // CR key
-        ccKey['a7on']    = { row:  1, bit: 4 };  // A7 on
-        ccKey['bla7off'] = { row:  0, bit: 4 };  // A7/BL off
+        ccKeyToMatrix['break']   = { row: 15, bit: 4 };
+        ccKeyToMatrix['inschar'] = { row: 14, bit: 4 };
+        ccKeyToMatrix['delline'] = { row: 13, bit: 4 };
+        ccKeyToMatrix['insline'] = { row: 12, bit: 4 };
+        ccKeyToMatrix['delchar'] = { row: 11, bit: 4 };
+        ccKeyToMatrix['auto']    = { row: 10, bit: 4 };
+//      ccKeyToMatrix['xxxx']    = { row:  9, bit: 4 };  // the TMS 5501 note has this wrong
+//      ccKeyToMatrix['xxxx']    = { row:  9, bit: 4 };  // chr 6: enters a state where the next keystroke defines fg/bg/blink
+//      ccKeyToMatrix['xxxx']    = { row:  8, bit: 4 };  // the TMS 5501 note has this wrong
+//      ccKeyToMatrix['xxxx']    = { row:  8, bit: 4 };  // chr 7
+        ccKeyToMatrix['home']    = { row:  7, bit: 4 };  // chr 8, home
+        ccKeyToMatrix['tab']     = { row:  6, bit: 4 };  // tab key
+        ccKeyToMatrix['curdwn']  = { row:  5, bit: 4 };  // down arrow
+        ccKeyToMatrix['eline']   = { row:  4, bit: 4 };  // erase line
+        ccKeyToMatrix['epage']   = { row:  3, bit: 4 };  // erase page
+        ccKeyToMatrix['cr']      = { row:  2, bit: 4 };  // CR key
+        ccKeyToMatrix['a7on']    = { row:  1, bit: 4 };  // A7 on
+        ccKeyToMatrix['bla7off'] = { row:  0, bit: 4 };  // A7/BL off
 
         // assorted others
-        ccKey['black']   = { row: 15, bit: 5 };
-        ccKey['red']     = { row: 14, bit: 5 };
-        ccKey['green']   = { row: 13, bit: 5 };
-        ccKey['yellow']  = { row: 12, bit: 5 };
-        ccKey['blue']    = { row: 11, bit: 5 };
-        ccKey['magenta'] = { row: 10, bit: 5 };
-        ccKey['cyan']    = { row:  9, bit: 5 };  // the TMS 5501 note has this wrong
-        ccKey['white']   = { row:  8, bit: 5 };  // the TMS 5501 note has this wrong
-//      ccKey['xxxx']    = { row:  7, bit: 5 };  // chr 24 (CTRL-X)
-        ccKey['currgt']  = { row:  6, bit: 5 };  // right arrow
-        ccKey['curlft']  = { row:  5, bit: 5 };  // left arrow
-        ccKey['esc']     = { row:  4, bit: 5 };  // esc
-        ccKey['curup']   = { row:  3, bit: 5 };  // up arrow
-        ccKey['fgon']    = { row:  2, bit: 5 };  // FG on
-        ccKey['bgon']    = { row:  1, bit: 5 };  // BG on
-        ccKey['blinkon'] = { row:  0, bit: 5 };  // blink on
+        ccKeyToMatrix['black']   = { row: 15, bit: 5 };
+        ccKeyToMatrix['red']     = { row: 14, bit: 5 };
+        ccKeyToMatrix['green']   = { row: 13, bit: 5 };
+        ccKeyToMatrix['yellow']  = { row: 12, bit: 5 };
+        ccKeyToMatrix['blue']    = { row: 11, bit: 5 };
+        ccKeyToMatrix['magenta'] = { row: 10, bit: 5 };
+        ccKeyToMatrix['cyan']    = { row:  9, bit: 5 };  // the TMS 5501 note has this wrong
+        ccKeyToMatrix['white']   = { row:  8, bit: 5 };  // the TMS 5501 note has this wrong
+//      ccKeyToMatrix['xxxx']    = { row:  7, bit: 5 };  // chr 24 (CTRL-X)
+        ccKeyToMatrix['currgt']  = { row:  6, bit: 5 };  // right arrow
+        ccKeyToMatrix['curlft']  = { row:  5, bit: 5 };  // left arrow
+        ccKeyToMatrix['esc']     = { row:  4, bit: 5 };  // esc
+        ccKeyToMatrix['curup']   = { row:  3, bit: 5 };  // up arrow
+        ccKeyToMatrix['fgon']    = { row:  2, bit: 5 };  // FG on
+        ccKeyToMatrix['bgon']    = { row:  1, bit: 5 };  // BG on
+        ccKeyToMatrix['blinkon'] = { row:  0, bit: 5 };  // blink on
 
-        ccKey[' ']         = { row: 15, bit: 6 };  // space
-//      ccKey['xxxx']      = { row: 14, bit: 6 },  // chr 33  "!"
-//      ccKey['xxxx']      = { row: 13, bit: 6 },  // chr 34  (")
-//      ccKey['xxxx']      = { row: 12, bit: 6 },  // chr 35  "#"
-//      ccKey['xxxx']      = { row: 11, bit: 6 },  // chr 36  "$"
-//      ccKey['xxxx']      = { row: 10, bit: 6 },  // chr 37  "%"
-//      ccKey['xxxx']      = { row:  8, bit: 6 },  // chr 39  (')
-//      ccKey['xxxx']      = { row:  7, bit: 6 },  // chr 40  "("
-//      ccKey['xxxx']      = { row:  6, bit: 6 },  // chr 41  ")"
-        ccKey['num*']      = { row:  5, bit: 6 };  // numeric keypad *
-        ccKey['num+']      = { row:  4, bit: 6 };  // numeric keypad +
-//      ccKey['xxxx']      = { row:  3, bit: 6 },  // chr 60  "<"
-        ccKey['numequals'] = { row:  2, bit: 6 };  // numeric keypad =
-//      ccKey['xxxx']      = { row:  1, bit: 6 },  // chr 62  ">"
-//      ccKey['xxxx']      = { row:  0, bit: 6 },  // chr 63  "?"
+        ccKeyToMatrix[' ']       = { row: 15, bit: 6 };  // space
+//      ccKeyToMatrix['xxxx']    = { row: 14, bit: 6 },  // chr 33  "!"
+//      ccKeyToMatrix['xxxx']    = { row: 13, bit: 6 },  // chr 34  (")
+//      ccKeyToMatrix['xxxx']    = { row: 12, bit: 6 },  // chr 35  "#"
+//      ccKeyToMatrix['xxxx']    = { row: 11, bit: 6 },  // chr 36  "$"
+//      ccKeyToMatrix['xxxx']    = { row: 10, bit: 6 },  // chr 37  "%"
+//      ccKeyToMatrix['xxxx']    = { row:  8, bit: 6 },  // chr 39  (')
+//      ccKeyToMatrix['xxxx']    = { row:  7, bit: 6 },  // chr 40  "("
+//      ccKeyToMatrix['xxxx']    = { row:  6, bit: 6 },  // chr 41  ")"
+        ccKeyToMatrix['num*']    = { row:  5, bit: 6 };  // numeric keypad *
+        ccKeyToMatrix['num+']    = { row:  4, bit: 6 };  // numeric keypad +
+//      ccKeyToMatrix['xxxx']    = { row:  3, bit: 6 },  // chr 60  "<"
+        ccKeyToMatrix['num=']    = { row:  2, bit: 6 };  // numeric keypad =
+//      ccKeyToMatrix['xxxx']    = { row:  1, bit: 6 },  // chr 62  ">"
+//      ccKeyToMatrix['xxxx']    = { row:  0, bit: 6 },  // chr 63  "?"
 
-//      ccKey['xxxx']      = { row: 15, bit: 7 },  // chr 249
-//      ccKey['xxxx']      = { row: 14, bit: 7 },  // chr 249
-//      ccKey['xxxx']      = { row: 13, bit: 7 },  // chr 251
-//      ccKey['xxxx']      = { row: 12, bit: 7 },  // chr 251
-//      ccKey['xxxx']      = { row: 11, bit: 7 },  // chr 253
-//      ccKey['xxxx']      = { row: 10, bit: 7 },  // chr 253
-//      ccKey['xxxx']      = { row:  8, bit: 7 },  // chr 255
-//      ccKey['xxxx']      = { row:  7, bit: 7 },  // chr 249
-//      ccKey['xxxx']      = { row:  6, bit: 7 },  // chr 249
-//      ccKey['xxxx']      = { row:  5, bit: 7 },  // chr 251
-//      ccKey['xxxx']      = { row:  4, bit: 7 },  // chr 251
-//      ccKey['xxxx']      = { row:  3, bit: 7 },  // chr 253
-//      ccKey['xxxx']      = { row:  2, bit: 7 },  // chr 253
-//      ccKey['xxxx']      = { row:  1, bit: 7 },  // chr 255
-//      ccKey['xxxx']      = { row:  0, bit: 7 },  // chr 255
+//      ccKeyToMatrix['xxxx']    = { row: 15, bit: 7 },  // chr 249
+//      ccKeyToMatrix['xxxx']    = { row: 14, bit: 7 },  // chr 249
+//      ccKeyToMatrix['xxxx']    = { row: 13, bit: 7 },  // chr 251
+//      ccKeyToMatrix['xxxx']    = { row: 12, bit: 7 },  // chr 251
+//      ccKeyToMatrix['xxxx']    = { row: 11, bit: 7 },  // chr 253
+//      ccKeyToMatrix['xxxx']    = { row: 10, bit: 7 },  // chr 253
+//      ccKeyToMatrix['xxxx']    = { row:  8, bit: 7 },  // chr 255
+//      ccKeyToMatrix['xxxx']    = { row:  7, bit: 7 },  // chr 249
+//      ccKeyToMatrix['xxxx']    = { row:  6, bit: 7 },  // chr 249
+//      ccKeyToMatrix['xxxx']    = { row:  5, bit: 7 },  // chr 251
+//      ccKeyToMatrix['xxxx']    = { row:  4, bit: 7 },  // chr 251
+//      ccKeyToMatrix['xxxx']    = { row:  3, bit: 7 },  // chr 253
+//      ccKeyToMatrix['xxxx']    = { row:  2, bit: 7 },  // chr 253
+//      ccKeyToMatrix['xxxx']    = { row:  1, bit: 7 },  // chr 255
+//      ccKeyToMatrix['xxxx']    = { row:  0, bit: 7 },  // chr 255
 
         // modal keys
-        ccKey['capslock'] = { row: 16, bit: 7 };
-        ccKey['repeat']   = { row: 16, bit: 6 };
-        ccKey['shft']     = { row: 16, bit: 5 };
-        ccKey['ctrl']     = { row: 16, bit: 4 };
+        ccKeyToMatrix['capslock'] = { row: 16, bit: 7 };
+        ccKeyToMatrix['repeat']   = { row: 16, bit: 6 };
+        ccKeyToMatrix['shft']     = { row: 16, bit: 5 };
+        ccKeyToMatrix['ctrl']     = { row: 16, bit: 4 };
 
         // aliases
-        ccKey['bksp']    = ccKey['curlft'];
-        ccKey['delete']  = ccKey['delchar'];
-        ccKey['insert']  = ccKey['inschar'];
-        ccKey['num0']    = ccKey['0'];
-        ccKey['num1']    = ccKey['1'];
-        ccKey['num2']    = ccKey['2'];
-        ccKey['num3']    = ccKey['3'];
-        ccKey['num4']    = ccKey['4'];
-        ccKey['num5']    = ccKey['5'];
-        ccKey['num6']    = ccKey['6'];
-        ccKey['num7']    = ccKey['7'];
-        ccKey['num8']    = ccKey['8'];
-        ccKey['num9']    = ccKey['9'];
-        ccKey['num-']    = ccKey['-'];
-        ccKey['num/']    = ccKey['/'];
-        ccKey['num.']    = ccKey['.'];
+        ccKeyToMatrix['bksp']    = ccKeyToMatrix['curlft'];
+        ccKeyToMatrix['delete']  = ccKeyToMatrix['delchar'];
+        ccKeyToMatrix['insert']  = ccKeyToMatrix['inschar'];
+        ccKeyToMatrix['num0']    = ccKeyToMatrix['0'];
+        ccKeyToMatrix['num1']    = ccKeyToMatrix['1'];
+        ccKeyToMatrix['num2']    = ccKeyToMatrix['2'];
+        ccKeyToMatrix['num3']    = ccKeyToMatrix['3'];
+        ccKeyToMatrix['num4']    = ccKeyToMatrix['4'];
+        ccKeyToMatrix['num5']    = ccKeyToMatrix['5'];
+        ccKeyToMatrix['num6']    = ccKeyToMatrix['6'];
+        ccKeyToMatrix['num7']    = ccKeyToMatrix['7'];
+        ccKeyToMatrix['num8']    = ccKeyToMatrix['8'];
+        ccKeyToMatrix['num9']    = ccKeyToMatrix['9'];
+        ccKeyToMatrix['num-']    = ccKeyToMatrix['-'];
+        ccKeyToMatrix['num/']    = ccKeyToMatrix['/'];
+        ccKeyToMatrix['num.']    = ccKeyToMatrix['.'];
+
+        // mark keys where the shift state is different than on a PC keyboard.
+        // the value is what SHIFT should be on the ccII keyboard matrix.
+        // for all other keys, either shift doesn't matter, or it matches the
+        // shift state used by a PC keyboard.
+        ccKeyShift[':'] = false;
+        ccKeyShift['='] = true;
+        ccKeyShift['_'] = false;
+        ccKeyShift['^'] = false;
+        ccKeyShift['@'] = false;
+        ccKeyShift["'"] = true;
+        // curious cases:
+        //    - on the PC kb, "+" is shifted (shift-=), but there is also an
+        //      unshifted "+" on the numeric keypad.  The ccII also has a
+        //      shifted "+" (shift-;) and an unshifted numeric keypad "+".
+        //      deal with it later.
+        //    - on the PC kb, "*" is shifted (shift-8), but there is also an
+        //      unshifted "*" on the numeric keypad.  The ccII also has a
+        //      shifted "*" (shift-:) and an unshifted numeric keypad "*".
+        //      deal with it later.
+        //    - the PC has just the unshifted equal, while the equivalent
+        //      ccII keyboard key is shifted.  But the ccII also has a
+        //      numeric keypad equals, which is unshifted.
     }
 
-    function clearKey() {
+    // map a logical key name to the root ccII key it corresponds to.
+    // for instance, both 'A' and 'a' map to 'A', and both '1' and '!'
+    // map to '1'.
+    function logicalToCcIIkeyname(keyname) {
+        var from = 'abcdefghijklmnopqrstuvwxyz!"#$%&\'()0=+*<>?';
+        var to   = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890-;:,./';
+        var p = from.indexOf(keyname);
+        if (p >= 0) {
+            return to.charAt(p);
+        }
+
+        // assume 1:1 mapping
+        return keyname;
+    }
+
+    //========================================================================
+    // emulate the ccII keyboard state
+    //========================================================================
+
+    // Every time a PC key is depressed, it gets logged here.
+    // It is reported as a ccKey name, eg, 'esc', 'shft', 'A', 'num0'.
+    // There can be multiple keys being held down, in which case they are
+    // encoded as the most recent of all the keyswitch activations, which may
+    // not exactly match what the real ccII does.
+    var activeCcKeys = [];    // which key is currently depressed
+
+    // encoded CC-II keyboard matrix state
+    // [16] corresponds to the special decode for shift/control/repeat/capslock
+    var kbMatrix = [];
+
+    // wipe out the ccII keyboard state
+    function ccIIclear() {
+        /* jshint sub: true */
         for (var i = 0; i < 17; i++) {
             kbMatrix[i] = 0xFF;  // nothing pressed
         }
+        isDown['autorepeat'] = false;
     }
 
-    function matrix(row) {
-        return kbMatrix[row];
+    function ccIIKbReset() {
+        ccIIclear();
+        activeCcKeys = [];
+        ccIIencodeMatrix();
+        prevKeydown = undefined;
     }
 
-    // map the pc keyboard event to a logical name.
-    // often it is just the ascii code, but for keys which don't have an
-    // ascii equivalent, like "home", it is a descriptive word.
-    function mapPcKey(evt) {
-        var keyName;
-        if (evt.ctrlKey && (evt.keyCode >= 65) && (evt.keyCode <= 90)) {
-            // ctrl A-Z
-            keyName = String.fromCharCode(evt.keyCode);
-        } else if (evt.shiftKey) {
-            keyName = pcKey[ksh + evt.keyCode];
+    // remove a key from the list of active ccII keys
+    function ccIIremoveKey(ccKeyname) {
+        var len = activeCcKeys.length;
+        for (var n=0; n < len; n++) {
+            if (activeCcKeys[n].keyname === ccKeyname) {
+                activeCcKeys.splice(n, 1);
+                return;
+            }
         }
-        if (keyName === undefined) {
-            // either shift wasn't pressed, or there was no shifted mapping,
-            // so try the unshifted mapping
-            keyName = pcKey[evt.keyCode];
-        }
-        return keyName;
     }
 
-    // this is called only when no non-modal key is active.
-    // this shouldn't be necessary at all, except for the case where
-    // maybe there is a game which polls the state of one of these keys
-    // to act as a FIRE button or something like that.
-    function encodeModeKeys() {
-        // don't complain that (e.g.) ccKey["A"] should be ccKey.A
+    // add key to end of list of active keys.
+    // this needs to take logical keyname because the ccKeyShift[]
+    // index has to be the actual key value, not the root ccKey.
+    function ccIIkeydown(logicalKey, synthetic) {
         /* jshint sub: true */
-        clearKey();
+        var ccKeyname = logicalToCcIIkeyname(logicalKey);
+        // remove it if it already exists
+        ccIIremoveKey(ccKeyname);
+        // add it to the end of the list
+        var cck = ccKeyToMatrix[ccKeyname];
+        if (cck === undefined) {
+            alert("Error: unknown keyname " + ccKeyname);
+            return;
+        }
+        var sh = (synthetic) ? isDown['shft'] : ccKeyShift[logicalKey];
+        var info = { keyname: ccKeyname,
+                     row: cck.row,
+                     bit: cck.bit,
+                     shft: sh };
+        activeCcKeys.push(info);
+    }
+
+    // encode the list of currently depressed keys to something reasonable.
+    // it is not possible to be perfect, though.  it does support depressing
+    // multiple keys at the same time.
+    function ccIIencodeMatrix() {
+        /* jshint sub: true */
+        var len = activeCcKeys.length;
+        // clear the keyboard matrix (nothing depressed)
+        for (var i = 0; i < 17; i++) {
+            kbMatrix[i] = 0xFF;
+        }
+
+        // the modal keys are a special case. they are encoded
+        // up front, and subsequent keys can override it.
         kbMatrix[16] = (isDown['capslock'] ? 0x00 : 0x80) |
                        (isDown['repeat']   ? 0x00 : 0x40) |
                        (isDown['shft']     ? 0x00 : 0x20) |
                        (isDown['ctrl']     ? 0x00 : 0x10) |
                                                     0x0F;
-    }
 
-    function encodeASCII(keyName, useAmbientCtrl, useAmbientShft) {
-        // don't complain that (e.g.) ccKey["A"] should be ccKey.A
-        /* jshint sub: true */
-        var asc, cc, ctrl, shft;
-        if (keyName.length === 1) {
-            // it is a raw ascii code
-            asc = asciiToCcKey[keyName.charCodeAt(0)];
-            if (asc === undefined) {
-                alert('Error in encodeASCII');
-            } else {
-                // map that to the cc matrix encoding
-                cc = ccKey[asc.key];
-                ctrl = asc.ctrl;
-                shft = asc.shft;
-                // override if commanded to
-                if (useAmbientCtrl) {
-                    ctrl = isDown['ctrl'];
+        // scan keys from oldest to newest. The shift state can be overridden
+        // only if it is the most recent key.
+        var first_key = true;
+        for (var n=len-1; n >= 0; n--) {
+            var info = activeCcKeys[n];
+            if (!modalKeys[info.keyname]) {
+                // set the corresponding state:
+                kbMatrix[info.row] &= (~(1 << info.bit) & 0xFF);
+                // if it has a sh- or unsh- prefix, override the state of the
+                // shift key
+                if (first_key && info.shft === true) {
+                    kbMatrix[16] &= ~0x20;  // set the shift
+                } else if (first_key && info.shft === false) {
+                    kbMatrix[16] |= 0x20;  // clear the shift
                 }
-                if (useAmbientShft) {
-                    shft = isDown['shft'];
-                }
+                first_key = false;
             }
-        } else {
-            // it is a symbolic name, eg, "F7" or "curdwn".
-            // do a direct lookup in the cc table.
-            cc = ccKey[keyName];
-            ctrl = isDown['ctrl'];
-            shft = isDown['shft'];
         }
-
-        clearKey();
-        if (cc === undefined) {
-            alert('Error in encodeASCII');
-            return;
-        }
-
-        kbMatrix[cc.row] = (~(1 << cc.bit) & 0xFF);
-        // we never drive capslock in this case -- we are counting
-        // on whoever called us to fold together the state of the
-        // capslock and shift to form an effective shift state.
-        kbMatrix[16] = ( /* capslock */           0x80) |
-                       (isDown['repeat'] ? 0x00 : 0x40) |
-                       (shft             ? 0x00 : 0x20) |
-                       (ctrl             ? 0x00 : 0x10) |
-                                                  0x0F;
     }
 
-    // map the actual keystate to what the ccII keyboard scanner sees.
-    //
-    // out [5:4] == 00 selects keyboard decoding.
-    // out [3:0] drives the row decoder.
-    // out [7] selects the special key sensing.
-    //
-    // Inputs are pulled up by default, and key presses pull the indicated
-    // bit low.
-    //
-    // (the keyboard schematic seems to indicate a COMMAND key which acts
-    //  like the shift and control keys are held down simultaneously)
+    // return the state of the specified row
+    function ccIIMatrix(row) {
+        return kbMatrix[row];
+    }
+
+    //========================================================================
+    // catch pc keyboard events and communicate it to ccII model
+    //========================================================================
+
+    var isDown = [];    // true if this ccII key is currently depressed
+    var prevKeydown;    // most recently seen keydown keyCode
+
+    // which keys we care to process in onkeypress event handler
+    var keypressKeys = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
+                       'abcdefghijklmnopqrstuvwxyz' +
+                       '0123456789' +
+                       ' !@#$%^&*()-_=+[]\\;:\'",<.>/?';
 
     function pollModalKeys(evt) {
         /* jshint sub: true */
         isDown['alt']  = evt.altKey;
         isDown['ctrl'] = evt.ctrlKey;
         isDown['shft'] = evt.shiftKey;
-        if (evt.getModifierState) {
-            // we can't reliably know the capslock state just from keydown /
-            // keyup pairs, since its behavior is that of a toggle.  instead,
-            // on every event, capture the current capslock state.
-            isDown['capslock'] = evt.getModifierState('CapsLock');
-        } else {
-            // if the browser doesn't support it, there's no recourse
-            isDown['capslock'] = false;
-        }
-        if (repeatMode === 'alt') {
-            // map the ALT key to stand in for the repeat key
-            isDown['repeat'] = isDown['alt'];
-        } else if (repeatMode === 'auto') {
-            // detected PC auto repeat; use that
-            isDown['repeat'] = isDown['autorepeat'];
-        }
-    }
 
-    // given an ascii value, or a key name, map it onto the key matrix.
-    // send undefined to clear the key matrix.
-    function forceKey(ascii) {
-        clearKey();
-        if (ascii !== undefined) {
-            var cck = ccKey[ascii];
-            if (cck === undefined) {
-                alert("Key '" + ascii +
-                      "' (" + ascii.charCodeAt(0) + ') not mappable');
-                return;
+        // we can't reliably know the capslock state just from keydown /
+        // keyup pairs, since its behavior is that of a toggle.  try to
+        // determine it though other means.
+        if (capslock_detectable === undefined) {
+            if (!evt.getModifierState) {
+                capslock_detectable = false;
+            } else if (evt.getModifierState('CapsLock')) {
+                capslock_detectable = true;
             }
-            encodeASCII(ascii, true, true);
+        }
+        // if getModifierState() works, immediately set isDown['capslock'].
+        // otherwise, leave the state alone and set it when the next alphabetic
+        // character is hit.
+        if (capslock_detectable) {
+            isDown['capslock'] = evt.getModifierState('CapsLock');
+        }
+
+        // set the repeat key based on the chosen emulation method
+        switch (repeatMode) {
+            case 'auto':
+                // detected PC auto repeat; use that
+                isDown['repeat'] = isDown['autorepeat'];
+                break;
+            case 'alt':
+                // map the ALT key to stand in for the repeat key
+                isDown['repeat'] = isDown['alt'];
+                break;
+            case 'always':
+                isDown['repeat'] = true;
+                break;
+            case 'never':
+                isDown['repeat'] = false;
+                break;
         }
     }
 
-    // given an ascii value, map it to the keyboard matrix.
-    // unlike forceKey, this one doesn't allow any control/shift
-    // overrides, since it is called from an autotyper script.
-    function asciiKey(ascii) {
-        if (ascii === undefined) {
-            clearKey();
-        } else {
-            encodeASCII(ascii, false, false);
-        }
-    }
-
+    // this fires when a key is first physically depressed,
+    // and on each autorepeat
     function onKeydown(e) {
         /* jshint sub: true */
-
         if (ccemu.debugging()) {
             return;
         }
         var evt = e || window.event;
+
+        pollModalKeys(evt);
 
         // if the pc sends two keydown events in a row with the same code
         // with no intervening keyup, remember it
@@ -614,31 +701,21 @@ var keybrd = (function () {
             isDown['autorepeat'] = true;
         } else {
             isDown['autorepeat'] = false;
-            if (!modalKeys[pcKey[evt.keyCode]]) {
-                prevKeydown = evt.keyCode;
-            } else {
+            if (modalKeys[keycodeToLogical[evt.keyCode]]) {
                 prevKeydown = undefined;
+            } else {
+                prevKeydown = evt.keyCode;
             }
         }
-        pollModalKeys(evt);
 
-        // defer some keys to the follow-on onKeypress event.
-        // we can't handle it all here for two reasons:
-        //    - firefox and ie9 report the state of the caps lock key,
-        //      but webkit-based browsers don't.  as a result, we can't
-        //      know if A-Z are shifted or not.
-        //    - keydown tells you that, say, shift-2, is pressed, but
-        //      not what it means.  on standard US PC keyboards, it is "@";
-        //      on some other keyboards, it is double quote.
-        //          http://en.wikipedia.org/wiki/Keyboard_layout
-        // we don't use keypress handling for CTRL-whatever because
-        // we don't care about the state of the capslock in such cases,
-        // we just want to use the raw shift and control state because
-        // that is what the compucolor does.
-        if (useKeypress[evt.keyCode] && !evt.ctrlKey) {
+        // map the event keyCode to the logical and ccII key name.
+        // if no mapping exists, either it is a key we don't care about,
+        // (e.g., the "windows" key), or we can't know the meaning of the
+        // key until the onkeypress event (e.g., 190 -> '.' in firefox).
+        var keyName = keycodeToLogical[evt.keyCode];
+        if (keyName === undefined) {
             return;
         }
-        var keyName = mapPcKey(evt);
 
         // the following isn't quite right -- the real machine was in a reset
         // state for the duration of the key depression, and came out
@@ -647,7 +724,7 @@ var keybrd = (function () {
         // in theory we don't need to distinguish it here.  we could just
         // do a warm reset and then let the ROM poll the ctrl & shift keys
         // to determine which kind of reset to do.  the problem is that
-        // the warm reset rests the keyboard object, which clears out the
+        // the warm reset resets the keyboard object, which clears out the
         // keyboard matrix, and the control and reset key state won't be
         // noticed until the next keydown/keyup event.
         if (keyName === 'reset') {
@@ -670,72 +747,136 @@ var keybrd = (function () {
             return false;
         }
 
-        if (keyName) {
-            isDown[keyName] = true;
-
-            if (modalKeys[keyName]) {
-                encodeModeKeys();
-            } else { // non-modal key
-                if ((keyName >= 'A' && keyName <= 'Z') ||
-                    (keyName >= 'a' && keyName <= 'z')) {
-                    // for single character keyName values, encodeASCII
-                    // usually uses only what the ccKey translation table
-                    // indicates for mode keys, but for alphabetic chars,
-                    // we want the ambient ctrl & shift state to apply.
-                    // in fact, we know that cntl is true if we are here,
-                    // because non-ctrl cases are handled in keypress.
-                    encodeASCII(keyName, true, true);
-                } else {
-                    // use ambient ctrl, but use shft from ccKey mapping
-                    encodeASCII(keyName, true, false);
-                }
-            }
+        if ((keyName !== undefined) && !modalKeys[keyName]) {
+            ccIIkeydown(keyName);
         }
+        ccIIencodeMatrix();
 
+        // suppress further processing
         evt.preventDefault();
         return false;
     }
 
+    // this fires when a key is physically pressed;
+    // it fires every time the key autorepeats
     function onKeypress(e) {
+        /* jshint sub: true */
+        var evt = e || window.event;
+        var charCode = evt.charCode || evt.keyCode; // IE doesn't have charCode
+        var ch = String.fromCharCode(charCode);
+
         if (ccemu.debugging() || autotyper.isRunning()) {
             return;
         }
-        /* jshint sub: true */
-        var evt = e || window.event;
-        var charCode = evt.charCode;
-        var ch       = String.fromCharCode(charCode);
 
-        if (evt.ctrlKey) {
-            return false; // how did we get here?  onKeydown supposedly killed ctrl key combinations
-        }
-        var handleSet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ' +
-                        'abcdefghijklmnopqrstuvwxyz' +
-                        '0123456789' +
-                        ' !@#$%^&*()-_=+[]\\;:\'",<.>/?';
-        if (handleSet.indexOf(ch) >= 0) {
-            // it is safe to handle
-            isDown[ch] = true;
-            encodeASCII(ch, true, false);
+        // process only certain keys and ignore the rest
+        if (keypressKeys.indexOf(ch) < 0) {
+            // prevent further processing
             evt.preventDefault();
             return false;
-        } else if (0) {
-            alert('onKeypress saw character code ' + charCode +
-                  '(' + ch + ')');
+        }
+
+        // detect if CapsLock is depressed, and if getModifierState() works
+        var detected_capslock = (ch >= 'A' && ch <= 'Z' && !evt.shiftKey) ||
+                                (ch >= 'a' && ch <= 'z' &&  evt.shiftKey) ;
+        if (detected_capslock && (capslock_detectable === undefined)) {
+            capslock_detectable = false;  // getModifierState() must not work
+        }
+        if (capslock_detectable) {
+            // why not just use detected_capslock? because getModifierState
+            // can report that capslock is on or off even if the current key
+            // isn't a letter.
+            isDown['capslock'] = evt.getModifierState('CapsLock');
+        } else if ((ch >= 'A' && ch <= 'Z') || (ch >= 'a' && ch <= 'z')) {
+            isDown['capslock'] = detected_capslock;
+        }
+
+        if (prevKeydown !== undefined) {
+            ccIIkeydown(ch);
+            ccIIencodeMatrix();
+
+            // for keys where onkeydown didn't have a mapping, fix that by
+            // creating the mapping so onKeyup() knows which key to release.
+            // we have to set it every time for cases like this:
+            //    PC SHIFT-2 produces "@", which maps to ccKey "@" which is
+            //    its own key.  If we just remembered the first mapping we
+            //    saw, pressing "2" would teach onkeyup that keycode 50 means
+            //    "2", and later one when we got a "@" from SHIFT-2, on release
+            //    it wouldn't be able to find the key in the active key list.
+            keycodeToLogical2[prevKeydown] = logicalToCcIIkeyname(ch);
+
+            // prevent further processing
+            evt.preventDefault();
+            return false;
         }
     }
 
+    // this fires when a key is physically released, but in some circumstances
+    // it doesn't fire, so it isn't 100% reliable.
     function onKeyup(e) {
+        /* jshint sub: true */
+        var evt = e || window.event;
         if (ccemu.debugging()) {
             return;
         }
-        /* jshint sub: true */
-        var evt = e || window.event;
-        isDown = [];
-        prevKeydown = undefined;  // reset autorepeat
+        var keyName = keycodeToLogical[evt.keyCode] ||   // static mapping
+                      keycodeToLogical2[evt.keyCode];    // learned mapping
+        var ccKeyname = logicalToCcIIkeyname(keyName);
+        if (keyName !== undefined && !modalKeys[keyName]) {
+            ccIIremoveKey(ccKeyname);
+        }
         pollModalKeys(evt);
-        encodeModeKeys();
+        isDown['autorepeat'] = false;
+        if (repeatMode === 'auto') {
+            isDown['repeat'] = false;
+        }
+        ccIIencodeMatrix();
         return false;
     }
+
+    // given an ascii value, or a key name, map it onto the key matrix.
+    // send undefined to clear the key matrix.  it is called from the auto
+    // button, the virtual keyboard, and on startup if the URL specified an
+    // autostart.
+    function virtualKey(keyobj) {
+        /* jshint sub: true */
+        ccIIKbReset();
+        isDown = [];
+        isDown['ctrl'] = keyobj.ctrl;
+        isDown['shft'] = keyobj.shft;
+        isDown['repeat'] = keyobj.repeat;
+        isDown['capslock'] = keyobj.capslock;
+        if (keyobj.key !== undefined) {
+            ccIIkeydown(keyobj.key, true);
+        }
+        ccIIencodeMatrix();
+    }
+
+    // Given an ascii value, map it to the keyboard matrix.
+    // It is called only from autotyper, and only if the key-at-a-time
+    // keyboard stuffing is in effect (normally it is line-at-time).
+    function asciiKey(ascii) {
+        /* jshint sub: true */
+        ccIIKbReset();
+        isDown = [];
+        if (ascii !== undefined) {
+            var asc = asciiToCcKey[ascii.charCodeAt(0)];
+            if (asc === undefined) {
+                alert("Error in asciiKey: code =" + ascii.charCodeAt(0));
+                return;
+            }
+            isDown['ctrl'] = asc.ctrl;
+            isDown['shft'] = asc.shft;
+            isDown['repeat'] = false;
+            isDown['capslock'] = false;
+            ccIIkeydown(asc.key, true);
+            ccIIencodeMatrix();
+        }
+    }
+
+    //========================================================================
+    // plumbing
+    //========================================================================
 
     function addEvent(evnt, elem, func) {
         if (elem.addEventListener) {   // W3C DOM
@@ -749,42 +890,26 @@ var keybrd = (function () {
 
     // other initialization
     function reset() {
-        clearKey();
+        ccIIKbReset();
     }
 
     // initialize state
     buildTables();
     reset();
 
-    // bind keyevent handlers
-    if (0) {
-        // this approach breaks editing the "#nval" text box
-        // it also knocks out the Caps Lock key detection in FF
-        // using 'html' instead of document does the same thing
-        $(document).keydown(onKeydown);
-        $(document).keypress(onKeypress);
-        $(document).keyup(onKeyup);
-    } else {
-        // because we need these, we can't kill off addEvent()
-        addEvent('keydown',  document, onKeydown);
-        addEvent('keypress', document, onKeypress);
-        addEvent('keyup',    document, onKeyup);
-    }
+    addEvent('keydown',  document, onKeydown);
+    addEvent('keypress', document, onKeypress);
+    addEvent('keyup',    document, onKeyup);
 
-    // if the window loses focus, kill autorepeat
     // firefox is happy with either window or document; IE9 requires window
-    addEvent('blur', window, function () {
-        clearKey();
-        prevKeydown = undefined;
-    });
+    addEvent('blur', window, function () { reset(); });
 
     // expose public members:
     return {
-        'reset':     reset,
-        'matrix':    matrix,
-        'clearKey':  clearKey,
-        'forceKey':  forceKey,
-        'asciiKey':  asciiKey
+        'reset':      reset,
+        'matrix':     ccIIMatrix,
+        'virtualKey': virtualKey,
+        'asciiKey':   asciiKey
     };
 
 }());  // keybrd

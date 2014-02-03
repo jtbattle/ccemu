@@ -258,11 +258,6 @@ function Floppy(unit_num) {
         }
     }
 
-    // produce response to 5501 parallel port read of the drive status
-    function getStatus() {
-        return 0x00;  // the floppy doesn't return any status
-    }
-
     // rather than attempting to update the write stream as each bit cell
     // passes the write head, we note the current 8080 tick count (as
     // writeStart) at certain events.  Later, when another event happens,
@@ -926,7 +921,6 @@ function Floppy(unit_num) {
         'getPosition'      : function () { return curPosition; },  // FIXME: here just for debugging
         'reset'            : reset,
         'select'           : select,
-        'getStatus'        : getStatus,
         'txData'           : txData,
         'insertFloppy'     : insertFloppy,
         'removeFloppy'     : removeFloppy,

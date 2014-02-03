@@ -12,6 +12,14 @@
 
 <h1>Compucolor II Emulator</h1>
 
+<p class="dateline">Beta release, February 3, 2014</p>
+
+<div class="helplinks">
+    <span><a href="help.html" target="_blank">Help</a></span>
+    <span style="padding-left:8em">&nbsp;</span>
+    <span><a href="about.html" target="_blank">About</a></span>
+</div>
+
 <div id="controls">
 
       <p><button id="hardreset" class="but1">Hard Reset</button></p>
@@ -40,10 +48,11 @@
           <option value="Lower case">Lower case
       </select>
 
-      <div class="soundware">
+      <div class="soundware radios">
+	  <p>Soundware:</p>
 	  <label>
 	      <input type="checkbox" id="soundware_cb">
-	      Enable soundware
+	      Enable
 	  </label>
           <p id="soundware_debug"></p>
       </div>
@@ -57,13 +66,21 @@
       </div>
 
       <p>Virtual keyboard:</p>
-      <input type="radio" id="vkNone"   name="vkSize" value="None" checked="checked">None
-      <input type="radio" id="vkSmall"  name="vkSize" value="S">S
-      <input type="radio" id="vkMedium" name="vkSize" value="M">M
-      <input type="radio" id="vkLarge"  name="vkSize" value="L">L
+      <div class="vktype">
+	  <select id="vksel">
+	      <option value="Basic">Basic
+	      <option value="Enhanced">Enhanced
+	      <option value="Deluxe" selected>Deluxe
+	      <option value="Special">Special Keys
+	  </select>
+      </div>
+      <div class="radios">
+	  <input type="radio" id="vkNone"   name="vkSize" value="None" checked="checked">None
+	  <input type="radio" id="vkSmall"  name="vkSize" value="S">S
+	  <input type="radio" id="vkMedium" name="vkSize" value="M">M
+	  <input type="radio" id="vkLarge"  name="vkSize" value="L">L
+      </div>
 
-      <p><a href="help.html" target="_blank">Help</a></p>
-      <p><a href="about.html" target="_blank">About</a></p>
 </div>
 
 <div id="screen">
@@ -83,93 +100,9 @@
     </div>
 </div>
 
-<div id="virtualkeyboard">
-<table>
-    <tbody>
-        <tr>
-            <td><button id="black">[OUT]</button></td>
-            <td><button id="blue">[LOAD]</button></td>
-            <td>&nbsp;&nbsp;</td>
-            <td><button id="F0" class="fcn">F0<br />VECT<br />INC</button></td>
-            <td><button id="F1" class="fcn">F1<br />VECT<br />Y1</button></td>
-            <td><button id="F2" class="fcn">F2<br />VECT<br />X1</button></td>
-            <td><button id="F3" class="fcn">F3<br />Y BAR<br />INC</button></td>
-            <td><button id="F4" class="fcn">F4<br />Y BAR<br />YM</button></td>
-            <td><button id="F5" class="fcn">F5<br />Y BAR<br />X</button></td>
-            <td><button id="F6" class="fcn">F6<br />Y BAR<br />Y0</button></td>
-            <td><button id="F7" class="fcn">F7<br />X BAR<br />INC</button></td>
-            <td><button id="F8" class="fcn">F8<br />X BAR<br />XM</button></td>
-            <td><button id="F9" class="fcn">F9<br />X BAR<br />Y</button></td>
-            <td><button id="F10" class="fcn">F10<br />X BAR<br />X0</button></td>
-            <td><button id="F11" class="fcn">F11<br />POINT<br />INC</button></td>
-            <td><button id="F12" class="fcn">F12<br />POINT<br />Y</button></td>
-            <td><button id="F13" class="fcn">F13<br />POINT<br />X</button></td>
-            <td><button id="F14" class="fcn">F14<br />CHAR<br />PLOT</button></td>
-            <td><button id="F15" class="fcn">F15<br />PLOT<br />ESC</button></td>
-        </tr>
-        <tr>
-            <td><button id="red">[PUT]</button></td>
-            <td><button id="magenta">[POKE]</button></td>
-            <td>&nbsp;&nbsp;</td>
-            <td>&nbsp;&nbsp;</td>
-            <td>&nbsp;&nbsp;</td>
-            <td><button id="auto" class="norm">AUTO</button></td>
-            <td><button id="fgon" class="norm">FG ON<br />FLG&nbsp;OFF</button></td>
-            <td><button id="bgon" class="norm">BG ON<br />FLG&nbsp;ON</button></td>
-            <td><button id="blnkon" class="norm">BLINK ON</button></td>
-            <td><button id="bla7off" class="norm">BL/A7<br />OFF</button></td>
-            <td><button id="a7on" class="norm">A7<br />ON</button></td>
-            <td><button id="vis" class="norm">(VIS)<br />[</button></td>
-            <td><button id="upa" class="norm">^<br />\</button></td>
-            <td><button id="block" class="norm">(BLOCK)<br />]</button></td>
-            <td><button id="user" class="norm">(USER)<br />^</button></td>
-            <td><button id="crt" class="norm">(CRT)<br />_</button></td>
-        </tr>
-        <tr>
-            <td><button id="green">[PLOT]</button></td>
-            <td><button id="cyan">[PRNT]</button></td>
-            <td>&nbsp;&nbsp;</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td><button id="epage" class="rstrow">ERASE<br />PAGE</button></td>
-            <td><button id="eline" class="rstrow">ERASE<br />LINE</button></td>
-            <td></td>
-            <td><button id="cpurst" class="rstrow">CPU<br />RESET</button></td>
-        </tr>
-        <tr>
-            <td><button id="yellow">[SAVE]</button></td>
-            <td><button id="white">[LIST]</button></td>
-            <td>&nbsp;&nbsp;</td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td></td>
-            <td><button id="delchar" class="norm">DEL<br />CHAR</button></td>
-            <td><button id="inschar" class="norm">INS<br />CHAR</button></td>
-            <td><button id="delline" class="norm">DEL<br />LINE</button></td>
-            <td><button id="insline" class="norm">INS<br />LINE</button></td>
-        </tr>
-    </tbody>
-</table>
-</div>
+<div style="clear:both"></div>
+
+<div id="virtualkeyboard"></div>
 
 <div style="clear:both"></div>
 
