@@ -22,7 +22,7 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // js8080 original by Chris Double (http://www.bluishcoder.co.nz/js8080/)
-//        modified by Stefan Tramm, 2010
+//        modified by Stefan Tramm, 2010 (http://www.tramm.li/i8080/)
 //        modified by Jim Battle, 2013   (http://www.compucolor.org)
 
 function pad(str, n) {
@@ -285,21 +285,24 @@ Cpu.prototype.subtractByteWithCarry = function(lhs, rhs) {
 
 Cpu.prototype.andByte = function(lhs, rhs) {
   var x = this.calcFlags(lhs & rhs, lhs, rhs);
-  this.f |= Cpu.HALFCARRY;
+  this.f &= ~(Cpu.HALFCARRY) & 0xFF;
+  if ((lhs | rhs) & 0x08) {
+    this.f |= Cpu.HALFCARRY;
+  }
   this.f &= ~Cpu.CARRY & 0xFF;
   return x;
 };
 
 Cpu.prototype.xorByte = function(lhs, rhs) {
   var x = this.calcFlags(lhs ^ rhs, lhs, rhs);
-  this.f |= Cpu.HALFCARRY;
+  this.f &= ~Cpu.HALFCARRY & 0xFF;
   this.f &= ~Cpu.CARRY & 0xFF;
   return x;
 };
 
 Cpu.prototype.orByte = function(lhs, rhs) {
   var x = this.calcFlags(lhs | rhs, lhs, rhs);
-  this.f |= Cpu.HALFCARRY;
+  this.f &= ~Cpu.HALFCARRY & 0xFF;
   this.f &= ~Cpu.CARRY & 0xFF;
   return x;
 };
@@ -618,11 +621,33 @@ Cpu.prototype.execute = function(i) {
     break;
   case 0x27:
     {
-      // DAA
-      var p1 = ((this.f & Cpu.HALFCARRY) || (this.a & 0x0f) > 9) ? 6 : 0;
-      this.a = this.calcFlags(this.a+p1, this.a, p1);
-      var p3 = ((this.f & Cpu.CARRY) || (this.a & 0xf0) > 0x90) ? 0x60 : 0;
-      this.a = this.calcFlags(this.a+p3, this.a, p3);
+      // DAA -- algorithm taken from Eric Smith's "ksim.c" (brouhaha.com)
+      var adjust = 0x00;
+      var nib0 = (this.a & 0xf);
+      var nib1 = (this.a >> 4);
+
+      if ((nib0 > 9) || (this.f & Cpu.HALFCARRY))
+	adjust = 0x06;
+      if ((nib1 > 9) ||
+          (this.f & Cpu.CARRY) ||
+          ((nib1 === 9) && ((this.f & Cpu.CARRY) || (nib0 > 9))))
+	adjust |= 0x60;
+
+      var new_ac = (nib0 >= 0xa);
+      var new_cy = (((nib1 >= 9) && (nib0 >= 10)) || (nib1 >= 10));
+
+      this.a = this.calcFlags(this.a + adjust, this.a, adjust);
+
+      if (new_ac)
+	this.f |= Cpu.HALFCARRY;
+      else
+	this.f &= ~Cpu.HALFCARRY & 0xFF;
+
+      if (new_cy)
+	this.f |= Cpu.CARRY;
+      else
+	this.f &= ~Cpu.CARRY & 0xFF;
+
       cycles = 4;
     }
     break;
