@@ -232,7 +232,7 @@ var tms5501 = (function () {
     }
 
     function serialSelected()   { return ((outport >> 4) & 3) === 0; }
-    function keyboardSelected() { return ((outport >> 4) & 3) === 0; }
+//  function keyboardSelected() { return ((outport >> 4) & 3) === 0; }
     function floppy0Selected()  { return ((outport >> 4) & 3) === 1; }
     function floppy1Selected()  { return ((outport >> 4) & 3) === 2; }
 
