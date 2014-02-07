@@ -48,8 +48,8 @@ var cpu,
     floppy = [];
 
 // optional UI features
-var enable_debug_interface = 0; // simple 8080 debug monitor
-var enable_rom_selection = 1;   // default v6.78 vs late v8.79 ROMs
+var enable_debug_interface = true; // simple 8080 debug monitor
+var enable_rom_selection = true;    // allow picking the ROM type
 
 //============================================================================
 // emu core
@@ -377,10 +377,10 @@ var ccemu = (function () {
     function update(cpu) {
         // FIXME: this should be exported by Cpu
         function flags(cpu) {
-            return (cpu.f & Cpu.ZERO ? 'z' : '.') +
-                   (cpu.f & Cpu.SIGN ? 's' : '.') +
+            return (cpu.f & Cpu.SIGN ? 's' : '.') +
+                   (cpu.f & Cpu.ZERO ? 'z' : '.') +
+                   (cpu.f & Cpu.HALFCARRY ? 'h' : '.') +
                    (cpu.f & Cpu.PARITY ? 'p' : '.') +
-                   (cpu.f & Cpu.INTERRUPT ? 'i' : '.') +
                    (cpu.f & Cpu.CARRY ? 'c' : '.');
         }
         $('#af').html(hex16(cpu.af()));

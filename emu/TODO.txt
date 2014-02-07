@@ -11,14 +11,22 @@ changes since the last official release:
   keys.  In theory, the emulator is now usable on a touchpad device.
   A new pulldown allows choosing the keyboard layout.
 
+* moved the Help and About links to a more easily discovered location
+
 * Fixed some bugs in the 8080 and TMS 5501 interrupt handling logic
 
-* moved the Help and About links to a more easily discovered location
+* 8080 AND, OR, and XOR opcodes were mishandling the aux carry flag;
+  the DAA operation was not right either
 
 * (plumbing) Events are now delegated from the enclosing div, instead of
   having event handlers for each virtual key.
 
 ----- emulator TODO list -----
+
+switch autotyper to default to stuffing a key-at-a-time.  a pragma will
+be added to allow switching to stuffing a line-at-a-time, suitable for
+BASIC source code (which is the current default, but utterly fails for
+other programs, such as editors).
 
 add cookies/persistent state for the emulator configuration
 

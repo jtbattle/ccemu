@@ -49,7 +49,6 @@ function Cpu(raw_ram, rd_func, wr_func, input_func, output_func, intvec_func)
 Cpu.CARRY     = 0x01;
 Cpu.PARITY    = 0x04;
 Cpu.HALFCARRY = 0x10;
-Cpu.INTERRUPT = 0x20;
 Cpu.ZERO      = 0x40;
 Cpu.SIGN      = 0x80;
 
@@ -65,11 +64,15 @@ Cpu.prototype.reset = function () {
   this.pc = 0;
   this.sp = 0x0000;
   this.halted = false;
+  this.intenable = false;
   this.intpending = false;
 };
 
 Cpu.prototype.af = function() {
-  return this.a << 8 | this.f;
+  // according to the intel 8080 programmer's manual (p. 22)
+  // bit 1 is always 1, while bits 3 and 5 are always 0
+  var flags = (this.f & 0xd7) | 0x02;
+  return this.a << 8 | flags;
 };
 
 Cpu.prototype.AF = function(n) {
@@ -127,7 +130,6 @@ Cpu.prototype.cpuStatus = function() {
   s += " " +
        (this.f & Cpu.SIGN ? "s" : ".") +
        (this.f & Cpu.ZERO ? "z" : ".") +
-       (this.f & Cpu.INTERRUPT ? "I" : ".") +
        (this.f & Cpu.HALFCARRY ? "h" : ".") +
        (this.f & Cpu.PARITY ? "p" : ".") +
        (this.f & Cpu.CARRY ? "c" : ".");
@@ -137,6 +139,7 @@ Cpu.prototype.cpuStatus = function() {
   s += " (HL):"+pad(this.rd(this.hl()).toString(16),2);
   s += " SP:"+pad(this.sp.toString(16),4);
   s += " PC:"; //+pad(this.pc.toString(16),4);
+  s += (this.intenable ? "  IE" : " !IE");
   s += this.disassemble1(this.pc)[1];
   return s;
 };
@@ -326,10 +329,10 @@ Cpu.prototype.irq = function(req) {
 // execute one instruction, and returns the number of cycles it took
 Cpu.prototype.execute = function(i) {
   var cycles, op;
-  if (this.intpending && (this.f & Cpu.INTERRUPT)) {
+  if (this.intpending && this.intenable) {
     // take an interrupt
     this.halted = false;
-    this.f &= ~Cpu.INTERRUPT;  // disable interrupt
+    this.intenable = false;  // disable interrupt
     // the routine which called this one has already incremented the PC.
     // undo it so it will be fetched again after the ISR.
     this.pc = (this.pc - 1) & 0xFFFF;
@@ -2147,7 +2150,7 @@ Cpu.prototype.execute = function(i) {
   case 0xF3:
     {
       // DI
-      this.f &= ~Cpu.INTERRUPT & 0xFF;
+      this.intenable = false;
       cycles = 4;
     }
     break;
@@ -2222,7 +2225,7 @@ Cpu.prototype.execute = function(i) {
   case 0xFB:
     {
       // EI
-      this.f |= Cpu.INTERRUPT;
+      this.intenable = true;
       cycles = 4;
     }
     break;
@@ -2401,9 +2404,11 @@ Cpu.prototype.disassembleInstructionIntel = (function () {
 
 })();
 
+// disassemble the instruction at the specified address,
+// dressed with address and instruction byte info
 Cpu.prototype.disassemble1 = function(addr) {
   var r = [];
-  var d = this.disassembleInstructionIntel.call(this, addr);
+  var d = this.disassembleInstructionIntel(addr);
   r.push(pad(addr.toString(16), 4));
   r.push(": ");
   for(var j = 0; j < d[0]-addr; j++)
@@ -2415,6 +2420,7 @@ Cpu.prototype.disassemble1 = function(addr) {
   return [d[0], r.join("")];
 };
 
+// disassemble 16 instructions, starting at the specified address
 Cpu.prototype.disassemble = function(addr) {
   var r = [];
   for(var i=0; i < 16; ++i) {
