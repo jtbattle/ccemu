@@ -49,7 +49,8 @@ var cpu,
 
 // optional UI features
 var enable_debug_interface = true; // simple 8080 debug monitor
-var enable_rom_selection = true;    // allow picking the ROM type
+var enable_rom_selection = true;   // allow picking the ROM type
+var superfast_cpu = false;         // don't throttle the cpu
 
 //============================================================================
 // emu core
@@ -209,7 +210,7 @@ var ccemu = (function () {
             autotyper.cancel();  // autotype module
         }
 
-        update(cpu);         // refresh display
+        update();         // refresh display
     }
 
     // BASIC checks a certain location for the magic value 97H to determine
@@ -267,14 +268,19 @@ var ccemu = (function () {
         // 2.0 instead of 1.0 because timeFractionBusy, for unknown reasons,
         // indicates more CPU utilization than is real
         var boost = 2.0 / timeFractionBusy;
+        if (superfast_cpu) {
+            // this is quick & dirty; there is a better way of doing this
+            boost = 8.0 / timeFractionBusy;
+        }
 
         // if audio is enabled, we have a realtime constraint on the
         // production of audio samples, which is more important that
         // precise cpu speed regulation
         var effCpuClocksPerTimeslice = cpuClocksPerTimeslice * audioBoostFactor;
 
-        var sliceClkLimit = (autotyping) ? boost*cpuClocksPerTimeslice
-                                         : effCpuClocksPerTimeslice;
+        var sliceClkLimit = (autotyping)    ? boost*cpuClocksPerTimeslice
+                          : (superfast_cpu) ? boost*cpuClocksPerTimeslice
+                                            : effCpuClocksPerTimeslice;
 
         var tStart = realtime();
         var tickLimit = tickCount + sliceClkLimit;
@@ -352,7 +358,7 @@ var ccemu = (function () {
         delete ccemu.interval;
         clearTimeReport();
         $('#debuginfo').show(300);
-        update(cpu);
+        update();
     }
 
     function debugging() {
@@ -374,9 +380,10 @@ var ccemu = (function () {
         return pad(n.toString(16), 4);
     }
 
-    function update(cpu) {
-        // FIXME: this should be exported by Cpu
-        function flags(cpu) {
+    function update() {
+        // FIXME: rather than peeking inside at the cpu members,
+        //        expose an interface for getting the info
+        function cpuflags() {
             return (cpu.f & Cpu.SIGN ? 's' : '.') +
                    (cpu.f & Cpu.ZERO ? 'z' : '.') +
                    (cpu.f & Cpu.HALFCARRY ? 'h' : '.') +
@@ -389,7 +396,7 @@ var ccemu = (function () {
         $('#hl').html(hex16(cpu.hl()));
         $('#pc').html(hex16(cpu.pc));
         $('#sp').html(hex16(cpu.sp));
-        $('#flags').html(flags(cpu));
+        $('#flags').html(cpuflags());
         $('#disassemble').html(cpu.disassemble(cpu.pc)[0]);
         crt.refreshDisplay();
         crt.blitDisplay();
@@ -496,7 +503,7 @@ var ccemu = (function () {
         halt();
         clearTimeReport();
         singleStep();
-        update(cpu);
+        update();
     }
 
     // (attached to a UI button)
@@ -509,7 +516,7 @@ var ccemu = (function () {
             singleStep();
         }
         var end = realtime();
-        update(cpu);
+        update();
         setTimeReport('That took ' + (end - start).toString() + ' ms');
     }
 
@@ -1311,8 +1318,8 @@ var ccemu = (function () {
             wrUnsafe(i, 0);
         }
 
-        var fnIntVec = tms5501.getIntVector;  // interrupt vector callback
-        cpu = new Cpu(ram, rd, wr, input, output, fnIntVec);
+        var cbIntVec = tms5501.getIntVector;  // interrupt vector callback
+        cpu = new Cpu(ram, rd, wr, input, output, cbIntVec);
         for (i = 0; i < numFloppies; i++) {
             floppy.push(new Floppy(i));
         }

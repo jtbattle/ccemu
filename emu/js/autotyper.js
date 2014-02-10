@@ -1,4 +1,4 @@
-// Copyright (c) 2013, Jim Battle
+// Copyright (c) 2013-2014, Jim Battle
 // All rights reserved.
 // 
 // Redistribution and use in source and binary forms, with or without modification,
@@ -180,7 +180,8 @@ var autotyper = (function () {
                 phase = 1;
             } else if (phase === 1) {
                 keybrd.asciiKey(); // clear it
-                phase = 0;
+                // heuristic: delay to allow for line processing
+                phase = (ch === '\r') ? -10 : 0;
                 offset++;
                 if (offset >= text.length) {
                     phase = 0;

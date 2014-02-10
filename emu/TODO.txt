@@ -16,7 +16,7 @@ changes since the last official release:
 * Fixed some bugs in the 8080 and TMS 5501 interrupt handling logic
 
 * 8080 AND, OR, and XOR opcodes were mishandling the aux carry flag;
-  the DAA operation was not right either
+  DAA, SUB, and SBB had problems too
 
 * (plumbing) Events are now delegated from the enclosing div, instead of
   having event handlers for each virtual key.

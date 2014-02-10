@@ -22,11 +22,15 @@
 // ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 // js8080 original by Chris Double (http://www.bluishcoder.co.nz/js8080/)
-//        modified by Stefan Tramm, 2010 (http://www.tramm.li/i8080/)
-//        modified by Jim Battle, 2013-2014 (http://www.compucolor.org)
+//    modified by Stefan Tramm, 2010 (http://www.tramm.li/i8080/)
+//    modified by Jim Battle, 2013-2014 (http://www.compucolor.org)
+//      some code (as noted) adapted from ksim.c, by Eric Smith
+//        (http://whats.all.this.brouhaha.com/2012/01/31/ksim-8080-simulator-released/)
 
-function pad(str, n) {
+// convert val to a 'n' digit hex number
+function pad(val, n) {
   var r = [];
+  var str = val.toString(16)
   for(var i=0; i < (n - str.length); ++i)
     r.push("0");
   r.push(str);
@@ -52,12 +56,26 @@ Cpu.HALFCARRY = 0x10;
 Cpu.ZERO      = 0x40;
 Cpu.SIGN      = 0x80;
 
+// precompute carry, parity, and sign flags for a given 8b result
+// the carry and auxcarry bits are left 0.
+Cpu.szpFlags = [];
+for(var n=0; n<256; n++) {
+  var sign = (n & 0x80);
+  var zero = (n === 0);
+  var parity = ((n >> 0) ^ (n >> 1) ^ (n >> 2) ^ (n >> 3) ^
+                (n >> 4) ^ (n >> 5) ^ (n >> 6) ^ (n >> 7) ^ 1) & 1;
+  Cpu.szpFlags[n] = (sign   ? Cpu.SIGN   : 0x00) |
+                    (zero   ? Cpu.ZERO   : 0x00) |
+                    (parity ? Cpu.PARITY : 0x00) |
+                    0x02;  // bit 1 is always set; 3 and 5 always reset
+}
+
 Cpu.prototype.reset = function () {
   this.b = 0;
   this.c = 0;
   this.d = 0;
   this.e = 0;
-  this.f = 0;
+  this.f = 0x02;	// bit 1 is always set
   this.h = 0;
   this.l = 0;
   this.a = 0;
@@ -77,7 +95,7 @@ Cpu.prototype.af = function() {
 
 Cpu.prototype.AF = function(n) {
   this.a = n >> 8 & 0xFF;
-  this.f = n & 0xFF;
+  this.f = (n & 0xD7) | 0x02;  // bit 1 is always set; 3 and 5 reset
 };
 
 Cpu.prototype.bc = function () {
@@ -109,12 +127,12 @@ Cpu.prototype.HL = function(n) {
 
 Cpu.prototype.toString = function() {
   return "{" +
-    " af: " + pad(this.af().toString(16),4) +
-    " bc: " + pad(this.bc().toString(16),4) +
-    " de: " + pad(this.de().toString(16),4) +
-    " hl: " + pad(this.hl().toString(16),4) +
-    " pc: " + pad(this.pc.toString(16),4) +
-    " sp: " + pad(this.sp.toString(16),4) +
+    " af: " + pad(this.af(),4) +
+    " bc: " + pad(this.bc(),4) +
+    " de: " + pad(this.de(),4) +
+    " hl: " + pad(this.hl(),4) +
+    " pc: " + pad(this.pc,4) +
+    " sp: " + pad(this.sp,4) +
     " flags: " +
     (this.f & Cpu.ZERO ? "z" : ".") +
     (this.f & Cpu.SIGN ? "s" : ".") +
@@ -126,34 +144,60 @@ Cpu.prototype.toString = function() {
 
 Cpu.prototype.cpuStatus = function() {
   var s = "";
-  s += " AF:"+pad(this.af().toString(16),4);
+  s += " AF:"+pad(this.af(),4);
   s += " " +
        (this.f & Cpu.SIGN ? "s" : ".") +
        (this.f & Cpu.ZERO ? "z" : ".") +
        (this.f & Cpu.HALFCARRY ? "h" : ".") +
        (this.f & Cpu.PARITY ? "p" : ".") +
        (this.f & Cpu.CARRY ? "c" : ".");
-  s += " BC:"+pad(this.bc().toString(16),4);
-  s += " DE:"+pad(this.de().toString(16),4);
-  s += " HL:"+pad(this.hl().toString(16),4);
-  s += " (HL):"+pad(this.rd(this.hl()).toString(16),2);
-  s += " SP:"+pad(this.sp.toString(16),4);
-  s += " PC:"; //+pad(this.pc.toString(16),4);
+  s += " BC:"+pad(this.bc(),4);
+  s += " DE:"+pad(this.de(),4);
+  s += " HL:"+pad(this.hl(),4);
+  s += " (HL):"+pad(this.rd(this.hl()),2);
+  s += " SP:"+pad(this.sp,4);
+  s += " PC:"; //+pad(this.pc,4);
   s += (this.intenable ? "  IE" : " !IE");
   s += this.disassemble1(this.pc)[1];
   return s;
 };
 
-Cpu.prototype.halted = function() {
-  return this.halted;
-};
-
 // Step through one instruction
 Cpu.prototype.step = function() {
-  var i = this.rd(this.pc++);
-  this.pc &= 0xFFFF;
-  var r = this.execute(i);
-  return r;
+  var op, inst, cycle_count;
+  // sanity checks
+  if (0) {
+    if (this.a !== (this.a & 0xFF)) { alert("trigger a"); }
+    if (this.f !== ((this.f & 0xD7) | 0x02)) { alert("trigger f"); }
+    if (this.b !== (this.b & 0xFF)) { alert("trigger b"); }
+    if (this.c !== (this.c & 0xFF)) { alert("trigger c"); }
+    if (this.d !== (this.d & 0xFF)) { alert("trigger d"); }
+    if (this.e !== (this.e & 0xFF)) { alert("trigger e"); }
+    if (this.h !== (this.h & 0xFF)) { alert("trigger h"); }
+    if (this.l !== (this.l & 0xFF)) { alert("trigger l"); }
+    if (this.pc !== (this.pc & 0xFFFF)) { alert("trigger pc"); }
+    if (this.sp !== (this.sp & 0xFFFF)) { alert("trigger sp"); }
+  }
+
+  if (this.intpending && this.intenable) {
+    // take an interrupt
+    this.halted = false;
+    this.intenable = false;  // disable interrupt
+    // this.intpending isn't automatically cleared because it is the job of
+    // intvec() to evalute if more interrupts are pending and call cpu.irq()
+    // with the new status
+    op = this.intvec();       // fetch RST n
+    return this.execute(op);  // do it
+  } else if (this.halted) {
+    // just burn time until either reset or an interrupt
+    return 4;
+  } else {
+    // normal operation
+    inst = this.rd(this.pc++);
+    this.pc &= 0xFFFF;
+    cycle_count = this.execute(inst);
+    return cycle_count;
+  }
 };
 
 Cpu.prototype.writePort = function (port, v) {
@@ -163,10 +207,6 @@ Cpu.prototype.writePort = function (port, v) {
 
 Cpu.prototype.readPort = function (port) {
   return this.input(port);
-};
-
-Cpu.prototype.getByte = function (addr) {
-  return this.rd(addr);
 };
 
 Cpu.prototype.getWord = function (addr) {
@@ -203,44 +243,19 @@ Cpu.prototype.writeWord = function(addr, value) {
   return this;
 };
 
-// use this for address arithmetic
-Cpu.prototype.add = function(a, b) {
-  return (a + b) & 0xffff;
-};
-
-// set flags after arithmetic and logical ops
+// set sign, zero, parity, aux carry, and carry flags after arithmetic
+// and logical ops
 Cpu.prototype.calcFlags = function(v, lhs, rhs) {
   var x = v & 0xFF;
+  this.f = Cpu.szpFlags[x];
 
-  // calc parity (see Henry S. Warren "Hackers Delight", page 74)
-  var y = x ^ (x >> 1);
-  y ^= y >> 2;
-  y ^= y >> 4;
-
-  if (y & 1)
-    this.f &= ~Cpu.PARITY & 0xFF; // PO
-  else
-    this.f |= Cpu.PARITY; // PE
-
-  if (v & 0x80)
-    this.f |= Cpu.SIGN;
-  else
-    this.f &= ~Cpu.SIGN & 0xFF;
-
-  if (x)
-    this.f &= ~Cpu.ZERO & 0xFF;
-  else
-    this.f |= Cpu.ZERO;
-
-  if (((rhs ^ v) ^ lhs) & 0x10)
+  // look at bit 4 and infers the carry out of bit 3.
+  // it assumes an addition is being performed.
+  if ((v ^ rhs ^ lhs) & 0x10)
     this.f |= Cpu.HALFCARRY;
-  else
-    this.f &= ~Cpu.HALFCARRY & 0xFF;
 
-  if (v >= 0x100 || v < 0)
+  if (v >= 0x100)
     this.f |= Cpu.CARRY;
-  else
-    this.f &= ~Cpu.CARRY & 0xFF;
 
   return x;
 };
@@ -254,7 +269,8 @@ Cpu.prototype.incrementByte = function(o) {
 
 Cpu.prototype.decrementByte = function(o) {
   var c = this.f & Cpu.CARRY; // carry isnt affected
-  var r = this.calcFlags(o-1, o, 1);
+  // add 0xff, not sub 1, otherwise aux carry is wrong
+  var r = this.calcFlags(o+0xff, o, 0xff);
   this.f = (this.f & ~Cpu.CARRY & 0xFF) | c;
   return r;
 };
@@ -268,36 +284,68 @@ Cpu.prototype.addByteWithCarry = function(lhs, rhs) {
 };
 
 Cpu.prototype.subtractByte = function(lhs, rhs) {
-  return this.calcFlags(lhs - rhs, lhs, rhs);
+  var flag = 1;
+  var rslt = this.calcFlags(lhs + (rhs ^ 0xff) + flag, lhs, rhs ^ 0xff);
+  this.f ^= Cpu.CARRY;
+  return rslt;
 };
 
 Cpu.prototype.subtractByteWithCarry = function(lhs, rhs) {
-  return this.subtractByte(lhs, rhs + ((this.f & Cpu.CARRY) ? 1 : 0));
+  var flag = (this.f & Cpu.CARRY) ? 0 : 1;
+  var rslt = this.calcFlags(lhs + (rhs ^ 0xff) + flag, lhs, rhs ^ 0xff);
+  this.f ^= Cpu.CARRY;
+  return rslt;
 };
 
 Cpu.prototype.andByte = function(lhs, rhs) {
-  var x = this.calcFlags(lhs & rhs, lhs, rhs);
-  this.f &= ~(Cpu.HALFCARRY) & 0xFF;
-  if ((lhs | rhs) & 0x08) {
+  var x = lhs & rhs;
+  this.f = Cpu.szpFlags[x];
+  // this is very weird, but the 8080 actually does this
+  if ((lhs | rhs) & 0x08)
     this.f |= Cpu.HALFCARRY;
-  }
-  this.f &= ~Cpu.CARRY & 0xFF;
   return x;
 };
 
 Cpu.prototype.xorByte = function(lhs, rhs) {
-  var x = this.calcFlags(lhs ^ rhs, lhs, rhs);
-  this.f &= ~Cpu.HALFCARRY & 0xFF;
-  this.f &= ~Cpu.CARRY & 0xFF;
+  var x = lhs ^ rhs;
+  this.f = Cpu.szpFlags[x];
   return x;
 };
 
 Cpu.prototype.orByte = function(lhs, rhs) {
-  var x = this.calcFlags(lhs | rhs, lhs, rhs);
-  this.f &= ~Cpu.HALFCARRY & 0xFF;
-  this.f &= ~Cpu.CARRY & 0xFF;
+  var x = lhs | rhs;
+  this.f = Cpu.szpFlags[x];
   return x;
 };
+
+// DAA algorithm taken from Eric Smith's "ksim.c"
+Cpu.prototype.daa = function(o) {
+    var adjust = 0x00;
+    var nib0 = (this.a & 0xf);
+    var nib1 = (this.a >> 4);
+    var orig_ac = (this.f & Cpu.HALFCARRY);
+    var orig_cy = (this.f & Cpu.CARRY);
+
+    if ((nib0 > 9) || orig_ac)
+      adjust = 0x06;
+    if ((nib1 > 9) || orig_cy ||
+        ((nib1 === 9) && (orig_cy || (nib0 > 9))))
+      adjust |= 0x60;
+
+    var new_ac = (nib0 >= 0xa);
+    var new_cy = (((nib1 >= 9) && (nib0 >= 10)) || (nib1 >= 10));
+
+    var rslt = (this.a + adjust) & 0xFF;
+    this.f = Cpu.szpFlags[rslt];
+
+    if (new_ac)
+      this.f |= Cpu.HALFCARRY;
+
+    if (orig_cy || new_cy)
+      this.f |= Cpu.CARRY;
+
+    return rslt;
+}
 
 Cpu.prototype.addWord = function(lhs, rhs) {
   var r = lhs + rhs;
@@ -328,23 +376,9 @@ Cpu.prototype.irq = function(req) {
 
 // execute one instruction, and returns the number of cycles it took
 Cpu.prototype.execute = function(i) {
-  var cycles, op;
-  if (this.intpending && this.intenable) {
-    // take an interrupt
-    this.halted = false;
-    this.intenable = false;  // disable interrupt
-    // the routine which called this one has already incremented the PC.
-    // undo it so it will be fetched again after the ISR.
-    this.pc = (this.pc - 1) & 0xFFFF;
-    // this.intpending isn't automatically cleared because it is the job of
-    // intvec() to evalute if more interrupts are pending and call cpu.irq()
-    // with the new status
-    op = this.intvec();         // fetch RST n
-    cycles = this.execute(op);  // do it
-  } else if (this.halted) {
-    // just burn time until either reset or an interrupt
-    cycles = 4;
-  } else switch(i) {
+  var cycles;
+
+  switch(i) {
   case 0x00:
     {
       // NOP
@@ -396,13 +430,13 @@ Cpu.prototype.execute = function(i) {
   case 0x07:
     {
       // RLCA
-      var l = (this.a & 0x80) >> 7;
-      if (l)
+      var b7 = (this.a & 0x80) >> 7;
+      if (b7)
 	this.f |= Cpu.CARRY;
       else
 	this.f &= ~Cpu.CARRY & 0xFF;
 
-      this.a = ((this.a << 1) & 0xFE) | l;
+      this.a = ((this.a << 1) & 0xFE) | b7;
       cycles = 4;
     }
     break;
@@ -613,33 +647,8 @@ Cpu.prototype.execute = function(i) {
     break;
   case 0x27:
     {
-      // DAA -- algorithm taken from Eric Smith's "ksim.c" (brouhaha.com)
-      var adjust = 0x00;
-      var nib0 = (this.a & 0xf);
-      var nib1 = (this.a >> 4);
-
-      if ((nib0 > 9) || (this.f & Cpu.HALFCARRY))
-	adjust = 0x06;
-      if ((nib1 > 9) ||
-          (this.f & Cpu.CARRY) ||
-          ((nib1 === 9) && ((this.f & Cpu.CARRY) || (nib0 > 9))))
-	adjust |= 0x60;
-
-      var new_ac = (nib0 >= 0xa);
-      var new_cy = (((nib1 >= 9) && (nib0 >= 10)) || (nib1 >= 10));
-
-      this.a = this.calcFlags(this.a + adjust, this.a, adjust);
-
-      if (new_ac)
-	this.f |= Cpu.HALFCARRY;
-      else
-	this.f &= ~Cpu.HALFCARRY & 0xFF;
-
-      if (new_cy)
-	this.f |= Cpu.CARRY;
-      else
-	this.f &= ~Cpu.CARRY & 0xFF;
-
+      // DAA
+      this.a = this.daa(this.a);
       cycles = 4;
     }
     break;
@@ -788,7 +797,7 @@ Cpu.prototype.execute = function(i) {
   case 0x3F:
     {
       // CCF
-      this.f ^= Cpu.CARRY; //~CARRY & 0xFF;
+      this.f ^= Cpu.CARRY;
       cycles = 4;
     }
     break;
@@ -2409,10 +2418,10 @@ Cpu.prototype.disassembleInstructionIntel = (function () {
 Cpu.prototype.disassemble1 = function(addr) {
   var r = [];
   var d = this.disassembleInstructionIntel(addr);
-  r.push(pad(addr.toString(16), 4));
+  r.push(pad(addr, 4));
   r.push(": ");
   for(var j = 0; j < d[0]-addr; j++)
-    r.push(pad(this.ram[addr+j].toString(16), 2));
+    r.push(pad(this.ram[addr+j], 2));
   while(j++ < 3)
     r.push("  ");
   r.push(" ");
@@ -2424,10 +2433,10 @@ Cpu.prototype.disassemble1 = function(addr) {
 Cpu.prototype.disassemble = function(addr) {
   var r = [];
   for(var i=0; i < 16; ++i) {
-    var l = this.disassemble1(addr);
-    r.push(l[1]);
+    var info = this.disassemble1(addr);
+    r.push(info[1]);
     r.push("\r\n");
-    addr = l[0];
+    addr = info[0];
   }
   return [r.join(""), addr];
 };
