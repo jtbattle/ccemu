@@ -288,18 +288,57 @@ key will cancel the transfer.
 </p>
 
 <p>
-There is one special feature to these autotyper files.
-If the first line of a loaded text file begins with the exact
+The files may contain special directives which are processed by the emulator,
+but which are not sent to the emulated machine.  Any place where the following
+text appears:
 </p>
 <pre>
 [[[RESET]]]
 </pre>
 <p>
-(no spaces) it will force the emulated Compucolor to go through a hard reset
-before the rest of the file is read in.  This is convenient for autoloading
-games so that it will make sure any program already in memory is wiped out.
-Putting "RUN" as the last line of the file will make the program run as soon
-as it is loaded.
+it will force the emulated Compucolor to go through a hard reset before the
+rest of the file is read in.  This is convenient for autoloading games so that
+it will make sure any program already in memory is wiped out.  Putting "RUN" as
+the last line of the file will make the program run as soon as it is loaded.
+</p>
+
+<p>
+By default, text is fed to the machine one key at a time, as if a very fast
+typist was at work.  Each key is depressed for one field time (which is the
+frequency that the keyboard polling routine runs), and then no keys are
+depressed for the next field.  Note that characters will be lost if the
+application can't keep up with that pace.  Because most programs, including
+the BASIC interpreter, have extra bookkeeping to do at the end of each line,
+a delay of 10 field times will occur when an end of line character is
+processed.  This can be changed to a 17 field time delay with this directive:
+</p>
+<pre>
+[[[STUFFKEYS;17]]]
+</pre>
+<p>
+17 is just an example; it can be any positive integer.  Using just
+</p>
+<pre>
+[[[STUFFKEYS]]]
+</pre>
+<p>
+by itself resets the delay to 10 field times.
+</p>
+
+<p>
+Even though this can enter about 30 characters per second, it still takes
+quite a while to type in a long file.  The emulator supports a hack to
+manipulate the machine state in order stuff one program line in at a time.
+This is fast, but it also means that text is not echoed to the screen as it
+is entered.  Use the following directive:
+</p>
+<pre>
+[[[STUFFLINES]]]
+</pre>
+
+<p>
+A file can contain any mix of straight text, [[[RESET]]], [[[STUFFLINES]]],
+and [[[STUFFKEYS]]].
 </p>
 
 <p><b>Warning:</b>

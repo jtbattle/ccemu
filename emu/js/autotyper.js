@@ -38,7 +38,8 @@ var autotyper = (function () {
 
     // set to true if the auto typer should simulate one keypress at a time.
     // otherwise, it will stuff a line at a time, which is much faster.
-    var key_at_a_time = false;
+    var key_at_a_time = true;
+    var key_at_a_time_eol_delay = 10;
 
     // state
     var text = '',    // the text we are streaming
@@ -49,6 +50,7 @@ var autotyper = (function () {
     // returns true on success, false if it failure
     function start(txt) {
         var reply;
+        key_at_a_time = true;   // default
 
         // sanity check the file size
         if (txt.length === 0) {
@@ -148,45 +150,78 @@ var autotyper = (function () {
         return (offset >= 0);
     }
 
-    // if the first line contains "[[[RESET]]]", it isn't sent to the device,
-    // but instead a system reset is done
-    function isMagicReset() {
-        return (offset === 0) &&
-               (text.slice(0,11) === "[[[RESET]]]");
+    // strings don't support splice :-(
+    function spliceString(str, index, count, add) {
+        return str.slice(0, index) + add + str.slice(index + count);
+    }
+
+    // look for pragmas embedded in the source file.
+    // all are of the form "[[[something]]]".
+    function checkForDirectives() {
+        
+        // "[[[RESET]]]" triggers a hard reset
+        if (text.slice(offset, offset+11) === "[[[RESET]]]") {
+            ccemu.hardReset(true);
+            // the first line after reset gets eaten, so insert an empty one
+            text = spliceString(text, offset, 11, '\r');
+            return true;
+        }
+
+        // "[[[STUFFLINES]]]" sets the input mode to line-at-a-time
+        // this mode is suitable for entering BASIC programs quickly,
+        // but it uses a hack to get that speed.
+        if (text.slice(offset, offset+16) === "[[[STUFFLINES]]]") {
+            key_at_a_time = false;
+            offset += 16;
+            if (offset >= text.length) {
+                phase = 0;
+                offset = -1;  // signal that we are done
+            }
+            return true;
+        }
+
+        // "[[[STUFFKEYS]]]" sets the input mode to key-at-a-time
+        // this mode is suitable for entering BASIC programs quickly, but it
+        // uses a hack to get that speed.  An optional number of fields to wait
+        // after each line end can also be specified (it defaults to 10).  This
+        // is often useful as programs need extra time at the end of line to
+        // take care of housekeeping (BASIC needs to parse the line, an editor
+        // might need to scroll).
+        var mo = /^\[\[\[STUFFKEYS(;(\d+))?\]\]\]/.exec(text.slice(offset));
+        if (mo) {
+            key_at_a_time = true;
+            key_at_a_time_eol_delay = (mo[2]) ? mo[2] : 10;
+            offset += mo[0].length;
+            if (offset >= text.length) {
+                phase = 0;
+                offset = -1;  // signal that we are done
+            }
+            return true;
+        }
+
+        // no pragmas detected
+        return false;
     }
 
     // trick the keyboard polling routine to accept one key at a time
     function pollKeyStuff() {
         var thrufl = 0x81de;  // line input done flag
 
-        // FIXME: this code is common to pollLineStuff
-        if (isRunning() && isMagicReset()) {
-            ccemu.hardReset(true);
-            text = '\r' +           // the first line after reset gets eaten
-                   text.slice(11);  // chomp
-            if (text.length === 0) {
-                offset = -1; // done
-            }
-            return;
-        }
-
-        if (isRunning()) {
-            var ch = nextChar();
-            if (phase < 0) {
-                phase++;
-            } else if ((phase === 0) &&
-                       (ccemu.rd(thrufl) === 0)) { // buffer accepting input
-                keybrd.asciiKey(ch); // set it
-                phase = 1;
-            } else if (phase === 1) {
-                keybrd.asciiKey(); // clear it
-                // heuristic: delay to allow for line processing
-                phase = (ch === '\r') ? -10 : 0;
-                offset++;
-                if (offset >= text.length) {
-                    phase = 0;
-                    offset = -1;  // signal that we are done
-                }
+        var ch = nextChar();
+        if (phase < 0) {
+            phase++;
+        } else if ((phase === 0) &&
+                   (ccemu.rd(thrufl) === 0)) { // buffer accepting input
+            keybrd.asciiKey(ch); // set it
+            phase = 1;
+        } else if (phase === 1) {
+            keybrd.asciiKey(); // clear it
+            // heuristic: delay to allow for line processing
+            phase = (ch === '\r') ? -key_at_a_time_eol_delay : 0;
+            offset++;
+            if (offset >= text.length) {
+                phase = 0;
+                offset = -1;  // signal that we are done
             }
         }
     }
@@ -199,18 +234,7 @@ var autotyper = (function () {
             thrufl = 0x81de,  // line input done flag
             len = 0;
 
-        if (isRunning() && isMagicReset()) {
-            ccemu.hardReset(true);
-            text = '\r' +           // the first line after reset gets eaten
-                   text.slice(11);  // chomp
-            if (text.length === 0) {
-                offset = -1; // done
-            }
-            return;
-        }
-
-        if (isRunning() &&
-            (ccemu.rd(thrufl) === 0)) { // buffer is in accepting state
+        if (ccemu.rd(thrufl) === 0) { // buffer is in accepting state
             // leading zero
             ccemu.wr(bufptr, 0x00);
             // stuff until we run out message, or hit a carriage return,
@@ -250,10 +274,17 @@ var autotyper = (function () {
         return 0;
     }
 
-    // this needs to be called periodically to check if the
-    // keyboard input routine is ready for more
-    var poll = (key_at_a_time) ? pollKeyStuff :
-                                 pollLineStuff;
+    // this needs to be called periodically to check if the keyboard input
+    // routine is ready for more
+    function poll() {
+        if (isRunning()) {
+            if (checkForDirectives()) {
+                return;
+            }
+            (key_at_a_time) ? pollKeyStuff()
+                            : pollLineStuff();
+        }
+    }
 
     // expose public members:
     return {
