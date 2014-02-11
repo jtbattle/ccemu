@@ -1,3 +1,5 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 
+# These files need to preserve compucolor (mac) line endings
+*.ccc binary
