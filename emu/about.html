@@ -67,20 +67,48 @@ the work and encouragement of others.
         size made me realize that perhaps it wasn't as big of a job as
         I had feared; I began writing this emulator a couple days later.
     </li>
+    <li>Garry Epps has spent many hours using the emulator, diagnosing problems,
+        writing test programs to exercise corner cases, and even disassembling
+        30 year old programs to figure out what it is doing that causes the
+        emulator to behave incorrectly.
+    </li>
 </ul>
 
-<h3>Version 2014.02.03</h3>
+<h3>Version 2014.02.12</h3>
 
-<p>This release benefited greatly from Garry Epps' massive help in
-spotting modeling problems, reverse engineering some misbehaving programs,
-and writing incisive test programs.</p>
+<p>This release benefited greatly from Garry Epps' massive help in spotting
+modeling problems, reverse engineering some misbehaving programs, and writing
+incisive test programs.</p>
 
 <ul class="changes">
     <li>Overhauled the keyboard event handling and mapping.  N-key rollover
         is implemented now, allowing for faster typing and use of games
         which require multiple keys to be held down simultaneously.</li>
     <li>Implemented basic, extended, and deluxe virtual keyboard layouts</li>
+    <li>If a virtual floppy image has been modified and not saved, a warning
+        dialog pops up when exiting the page, reloading, or closing the
+        browser</li>
+    <li>When feeding a file into the emulator via the "autotyping" feature,
+        the default is to now feed one key at a time instead of using the
+        hack to load the BASIC line buffer one line at a time.  Autotyping
+        is now usable in other contexts, such as entering text into an editor.
+        The autotyper now recognizes three directives:
+        <dl>
+            <dt>[[[RESET]]]</dt>
+                <dd>Force a hard reset</dd>
+            <dt>[[[STUFFLINES]]]</dt>
+                <dd>Autotype one line at a time</dd>
+            <dt>[[[STUFFKEYS]]]</dt>
+                <dd>Autotype one key at a time, waiting 10 field times after each end of line</dd>
+            <dt>[[[STUFFKEYS;n]]]</dt>
+                <dd>Autotype one key at a time, waiting 'n' field times after each end of line; 'n' can be any positive number</dd>
+        </dl>
+    </li>
     <li>Fixed some bugs in the 8080 and TMS 5501 interrupt handling</li>
+    <li>SUB, SBB, AND, OR, and XOR opcodes were mishandling the aux carry flag;
+        SUB and SBB were also mishandling the carry flag; DAA had a number of
+        problems.  The flags register wasn't respecting the fact that bits
+        1, 3, and 5 are constant values.</li>
     <li>Moved the "Help" and "About" links to a more discoverable location</li>
     <li>Various implementation improvements</li>
 </ul>

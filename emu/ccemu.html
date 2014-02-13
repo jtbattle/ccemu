@@ -12,7 +12,7 @@
 
 <h1>Compucolor II Emulator</h1>
 
-<p class="dateline">Beta release, February 11, 2014</p>
+<p class="dateline">Version: February 12, 2014</p>
 
 <div class="helplinks">
     <span><a href="help.html" target="_blank">Help</a></span>
@@ -71,7 +71,6 @@
 	      <option value="Basic">Basic
 	      <option value="Enhanced">Enhanced
 	      <option value="Deluxe" selected>Deluxe
-	      <option value="Special">Special Keys
 	  </select>
       </div>
       <div class="radios">
@@ -86,6 +85,7 @@
 <div id="screen">
     <canvas id="canv">Your browser don't support the HTML5 canvas element,
                       so the emulator can't run at all. Sorry.</canvas>
+    <p id="runnmsg"></p>
     <div id="drives">
       <div id="drivegroup0">
 	  <p id="drive0"><span id="CD0">CD0:</span> <span id="CD0Label">--empty--</span></p>
@@ -110,19 +110,34 @@
 <button id="run1" class="debugger">Run 1</button>
 <button id="runn" class="debugger">Run n</button>
 <input  id="nval" class="debugger" type="text" value="1000">
-<p id="runnmsg"></p>
 
 <div class="debugger">
     <br />
     <table id="regtable">
-        <tr><th>af<th>bc<th>de<th>hl<th>pc<th>sp<th>flags
-        <tr><td><div id="af"><td><div id="bc"><td><div id="de"><td><div id="hl"><td><div id="pc"><td><div id="sp"><td><div id="flags"><td>
+        <tr>
+	    <th>af</th>
+	    <th>bc</th>
+	    <th>de</th>
+	    <th>hl</th>
+	    <th>pc</th>
+	    <th>sp</th>
+	    <th>flags</th>
+	</tr>
+        <tr>
+	    <td><div id="af"></div></td>
+	    <td><div id="bc"></div></td>
+	    <td><div id="de"></div></td>
+	    <td><div id="hl"></div></td>
+	    <td><div id="pc"></div></td>
+	    <td><div id="sp"></div></td>
+	    <td><div id="flags"></div></td>
+	</tr>
     </table>
     <pre id="disassemble"></pre>
 </div>
 
 </div>
-<script type="text/javascript" src="js/jquery-1.9.1.js"></script>
+<script type="text/javascript" src="js/jquery-1.11.0.js"></script>
 <script type="text/javascript" src="js/AudioContextMonkeyPatch.js"></script>
 <script type="text/javascript" src="js/FileSaver.js"></script>
 <script type="text/javascript" src="js/js8080.js"></script>

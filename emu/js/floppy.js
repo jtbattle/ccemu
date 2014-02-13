@@ -62,6 +62,7 @@ function Floppy(unit_num) {
     var diskImage;                // holds array of array of bits packed into bytes
     var writeProtected = false;   // floppy write protect status
     var label;                    // list of label lines
+    var modified;                 // has the disk state been changed
 
     // properties of the disk drive or controller
     var curSelected = 0;  // 1 if we are currently selected
@@ -327,6 +328,7 @@ function Floppy(unit_num) {
         writeStart = ccemu.getTickCount() + ticks;
         writeByteTimer = scheduler.oneShot(ticks, writeByteCallback,
                                            devName + "writeByte");
+        modified = true;
     }
 
     // called after the 10 bits of a write byte have completed
@@ -382,6 +384,23 @@ function Floppy(unit_num) {
             }
         }
         return lines;
+    }
+
+    // return one of 'empty', 'modified', or 'unmodified'
+    // modified state indicates that the disk state has been changed
+    // since the disk was loaded, or since clearStatus was called,
+    // whichever came later
+    function getStatus() {
+        if (diskImage === undefined) {
+            return 'empty';
+        }
+        return (modified) ? 'modified' : 'unmodified';
+    }
+
+    function setStatus(state) {
+        if (diskImage !== undefined) {
+            modified = (state !== 'unmodified');
+        }
     }
 
     // if the input phase is not valid, no windings are driven, and the
@@ -780,6 +799,8 @@ function Floppy(unit_num) {
         // UI update
         var volLabel = decodeVolumeLabel();
         $('#CD' + unit + 'Label').html(volLabel);
+
+        modified = false;
     }
 
     // this is a lot of work for a little gain, but whatever...
@@ -924,7 +945,9 @@ function Floppy(unit_num) {
         'txData'           : txData,
         'insertFloppy'     : insertFloppy,
         'removeFloppy'     : removeFloppy,
-        'getFile'          : getFile
+        'getFile'          : getFile,
+        'getStatus'        : getStatus,
+        'setStatus'        : setStatus
     };
 }
 

@@ -8,29 +8,40 @@ changes since the last official release:
   matrix to detect which keys are are up or down at a given time.
 
 * The virtual keyboard now implements the full keyboard, not just the odd
-  keys.  In theory, the emulator is now usable on a touchpad device.
-  A new pulldown allows choosing the keyboard layout.
+  keys.  A new pulldown allows choosing the keyboard layout.
 
-* moved the Help and About links to a more easily discovered location
+* added cooltools.ccvf, a collection of program developer tools
+
+* Files which are fed into the autotyper have three pragmas now:
+    [[[RESET]]]        --- triggers a hard reset
+    [[[STUFFLINES]]]   --- stuff a line at a time (useful for entering BASIC)
+    [[[STUFFKEYS]]]    --- feed in text one key at a time; wait 10 field times
+                           at each end-of-line to allow processing.
+                           this is the default condition.
+    [[[STUFFKEYS;15]]] --- like [[[STUFFKEYS]]], but wait 15 field times.  the
+                           number after the semicolon can be counting number.
+
+* If a virtual floppy image has been modified and not saved, a warning
+  dialog pops up when exiting the page, reloading, or closing the browser.
+
+* Moved the Help and About links to a more easily discovered location
 
 * Fixed some bugs in the 8080 and TMS 5501 interrupt handling logic
 
-* 8080 AND, OR, and XOR opcodes were mishandling the aux carry flag;
-  DAA, SUB, and SBB had problems too
+* SUB, SBB, AND, OR, and XOR opcodes were mishandling the aux carry flag;
+  SUB and SBB were also mishandling the carry flag; DAA had a number of
+  problems.  The flags register wasn't respecting the fact that bits
+  1, 3, and 5 are constant values.
 
-* (plumbing) Events are now delegated from the enclosing div, instead of
-  having event handlers for each virtual key.
+* Events are now delegated from the enclosing div, instead of having
+  event handlers for each virtual key. (internal plumbing)
+
+* changed library to jquery-1.11.0  (from 1.9.1).  the hope is it takes
+  advantage of recent browser improvements.
 
 ----- emulator TODO list -----
 
-switch autotyper to default to stuffing a key-at-a-time.  a pragma will
-be added to allow switching to stuffing a line-at-a-time, suitable for
-BASIC source code (which is the current default, but utterly fails for
-other programs, such as editors).
-
 add cookies/persistent state for the emulator configuration
-
-generate a warning if navigating away from a disk with modified state
 
 add joystick emulation (garry epps sent some notes on the model)
 
@@ -38,6 +49,19 @@ garry epps points out that in his space invaders clone (invaders_epps.ccvf)
 that the shift keys are supposed to fire but don't.  I found that they
 fire if caps lock is active, but don't fire if not.  is this an emulator
 bug or a game bug?
+
+the cpu turbo mode is a dirty hack. rather than trying to measure load
+and then increase the number of instructions per timeslice, keep a fixed
+size timeslice.  rather than having a setInterval() scheduling, just
+execute a timeslice, then schedule another timeslice immediately.
+
+look whether it makes sense to use the animation callback instead of
+setInterval() for schedulding timeslices.
+
+code cleanup:
+    js8080.js has Cpu.toString and another very similar function which
+    I believe aren't used.  at the same time, ccemu recreates these in via
+    peeking to the Cpu guts.  make this clean.
 
 soundware emulation corner case:
     taylor/taylor_2.ccvf, STREK2.BAS invokes XXXXXX.BAS, which seems

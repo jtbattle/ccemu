@@ -42,15 +42,17 @@
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
 /* global audio, system_rom_6_78, system_rom_8_79 */
 /* global floppy_dbg, saveAs */
+/* global CPU8080 */
 
 // GLOBALS
 var cpu,
     floppy = [];
 
 // optional UI features
-var enable_debug_interface = true; // simple 8080 debug monitor
-var enable_rom_selection = true;   // allow picking the ROM type
-var superfast_cpu = false;         // don't throttle the cpu
+var enable_debug_interface = false; // simple 8080 debug monitor
+var enable_rom_selection = true;    // allow picking the ROM type
+var showCpuLoad = false;            // display emulator CPU load
+var superfast_cpu = false;          // don't throttle the cpu
 
 //============================================================================
 // emu core
@@ -239,7 +241,6 @@ var ccemu = (function () {
     var timeHistory = [];        // circular buffer
     var timeHistoryPtr = 0;      // circular buffer pointer
     var timeFractionBusy = 1.0;  // portion of time emulation consumes
-    var showTiming = false;
 
     // javascript uses doubles for numbers, which offer 53b of integer
     // precision, so running at 2MHz, the tickCount will start losing
@@ -300,7 +301,7 @@ var ccemu = (function () {
                 timeFractionBusy = tTotal / (timeHistory.length * TIMESLICE_MS);
             }
 
-            if (showTiming) {
+            if (showCpuLoad) {
                 var percent = (100*timeFractionBusy).toFixed(0).toString();
                 while (percent.length < 3) { percent = ' ' + percent; }
                 percent = 'Emulator consumes <tt>' + percent +
@@ -357,7 +358,7 @@ var ccemu = (function () {
         }
         delete ccemu.interval;
         clearTimeReport();
-        $('#debuginfo').show(300);
+        $('#debugger').show(300);
         update();
     }
 
@@ -420,6 +421,7 @@ var ccemu = (function () {
     // load a named file
     // (attached to a UI button)
     function autotypeRemoteFile(fileURL) {
+        // this fails to load local files on IE9 with jquery-2.1.0
         $.get(fileURL, function(responseTxt) {
             // take the focus off the control, otherwise subsequent
             // keyboard events can activate it inadvertently
@@ -465,6 +467,9 @@ var ccemu = (function () {
                     win.document.close();
                 }
             }
+            // mark the disk is written so we don't pester the user to save
+            // the disk on exit
+            floppy[unit].setStatus('unmodified');
         }
     }
 
@@ -511,13 +516,10 @@ var ccemu = (function () {
     {
         halt();
         var n = parseInt($('#nval')[0].value, 10);
-        var start = realtime();
         for (var i = 0; i < n; ++i) {
             singleStep();
         }
-        var end = realtime();
         update();
-        setTimeReport('That took ' + (end - start).toString() + ' ms');
     }
 
     // request "run", "debug" or "toggle"
@@ -536,9 +538,11 @@ var ccemu = (function () {
             // Run mode: switch label to Debugger
             $('#run_debug').html('Debugger...');
             $('.debugger').hide(300);
-            if (!showTiming) {
+            if (!showCpuLoad) {
                 clearTimeReport();
             }
+            // FIXME: should window.requestAnimationFrame() be used instead?
+            //        (with other adjustments, of course)
             ccemu.interval = setInterval(function () {
                 doCpuTimeslice();
             }, TIMESLICE_MS);
@@ -649,6 +653,7 @@ var ccemu = (function () {
             { label: 'Chip #91',        value: 'disks/chip_91.ccvf'             },
             { label: 'Chip #106',       value: 'disks/chip_106.ccvf'            },
             { label: 'Chomp (Pacman)',  value: 'disks/chomp.ccvf'               },
+            { label: 'Dev Tools',       value: 'disks/cooltools.ccvf'           },
             { label: 'Hangman',         value: 'disks/hangman.ccvf'             },
             { label: 'Lunar Lander',    value: 'disks/lunar_lander.ccvf'        },
             { label: 'Othello',         value: 'disks/othello.ccvf'             },
@@ -843,8 +848,8 @@ var ccemu = (function () {
 
         // have the div containing the virtual keys catch and delegate events,
         // rather than attaching event handlers to each key
-        var vk = $("#virtualkeyboard");
-        vk.mousedown(function (evt) {
+        var vk = document.getElementById('virtualkeyboard');
+        vk.onmousedown = function (evt) {
             var target = evt.target || evt.srcElement;
             var encoding;
             if (target.dataset === undefined) {
@@ -852,7 +857,13 @@ var ccemu = (function () {
                 encoding = target.getAttribute('data-keyval');
             } else {
                 // assume dataset works
-                encoding = target.dataset.keyval;
+                // On Chrome, if the text region of a button is clicked, the
+                // target we get here is the text span, not the button, so the
+                // data attribute is missing.  to compensate, if there is no
+                // keyval, check if the parent has a keyval.
+                encoding = (target.dataset.keyval === undefined) ?
+                               target.parentNode.dataset.keyval :
+                               target.dataset.keyval;
             }
             if (encoding === undefined) {
                 return;
@@ -882,10 +893,39 @@ var ccemu = (function () {
                 keyobj.key = encoding;
             }
             keybrd.virtualKey(keyobj);
-        });
-        vk.mouseup(setVirtualKeyModals);
-        vk.mouseleave(setVirtualKeyModals);
-    }
+        };
+        vk.onmouseup = setVirtualKeyModals;
+        vk.onmouseleave = setVirtualKeyModals;
+
+        // warn if leaving the page when there is modified disk state
+        // http://stackoverflow.com/questions/1704533/intercept-page-exit-event
+        //
+        // Note: Firefox doesn't display the supplied message because they view
+        //       it as a security issue.  Otherwise, ads on a webpage can
+        //       inject misleading text into a browser dialog, vs. having just
+        //       the standard neutral message.
+        window.onbeforeunload = function (e) {
+            e = e || window.event;
+            var disk0_modified = (floppy[0].getStatus() === 'modified');
+            var disk1_modified = (floppy[1].getStatus() === 'modified');
+            var message = (disk0_modified && disk1_modified) ?
+                "Disks in drives CD0: and CD1: have been modified; are you sure you want to exit?" :
+                          (disk0_modified) ?
+                "Disk in drive CD0: has been modified; are you sure you want to exit?" :
+                          (disk1_modified) ?
+                "Disk in drive CD1: has been modified; are you sure you want to exit?" :
+                undefined;
+            if (message) {
+                // For IE
+                if (e) {
+                    e.returnValue = message;
+                }
+                // For Safari
+                return message;
+            }
+        };
+
+    } // bindEvents()
 
     function detectFeatures() {
 
@@ -953,7 +993,7 @@ var ccemu = (function () {
         return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
 
-    // 1=standard, 2=enhanced, 3=deluxe, 4=special
+    // 1=standard, 2=enhanced, 3=deluxe
     function buildVirtualKeyboard(kb_model) {
         // format:
         //    - a list of rows
@@ -1125,83 +1165,6 @@ var ccemu = (function () {
             ]
         ];
 
-        // different layout: just the keys not found on a PC keyboard
-        // it moves things around to make the layout more compact
-        var kbtable2 = [
-            // row 0: function keys
-            [
-                { model: 4, key: 'F0',    id: 'F0',    label2: 'F0',  label: 'VECT|INC',   style: 'fcn' },
-                { model: 4, key: 'F1',    id: 'F1',    label2: 'F1',  label: 'VECT|Y1',    style: 'fcn' },
-                { model: 4, key: 'F2',    id: 'F2',    label2: 'F2',  label: 'VECT|X1',    style: 'fcn' },
-                { model: 4, key: 'F3',    id: 'F3',    label2: 'F3',  label: 'Y BAR|INC',  style: 'fcn' },
-                { model: 4, key: 'F4',    id: 'F4',    label2: 'F4',  label: 'Y BAR|YM',   style: 'fcn' },
-                { model: 4, key: 'F5',    id: 'F5',    label2: 'F5',  label: 'Y BAR|X',    style: 'fcn' },
-                { model: 4, key: 'F6',    id: 'F6',    label2: 'F6',  label: 'Y BAR|Y0',   style: 'fcn' },
-                { model: 4, key: 'F7',    id: 'F7',    label2: 'F7',  label: 'X BAR|INC',  style: 'fcn' },
-                { model: 4, key: 'F8',    id: 'F8',    label2: 'F8',  label: 'X BAR|XM',   style: 'fcn' },
-                { model: 4, key: 'F9',    id: 'F9',    label2: 'F9',  label: 'X BAR|Y',    style: 'fcn' },
-                { model: 4, key: 'F10',   id: 'F10',   label2: 'F10', label: 'X BAR|0',    style: 'fcn' },
-                { model: 4, key: 'F11',   id: 'F11',   label2: 'F11', label: 'POINT|INC',  style: 'fcn' },
-                { model: 4, key: 'F12',   id: 'F12',   label2: 'F12', label: 'POINT|Y',    style: 'fcn' },
-                { model: 4, key: 'F13',   id: 'F13',   label2: 'F13', label: 'POINT|X',    style: 'fcn' },
-                { model: 4, key: 'F14',   id: 'F14',   label2: 'F14', label: 'CHAR|PLOT',  style: 'fcn' },
-                { model: 4, key: 'F15',   id: 'F15',   label2: 'F15', label: 'PLOT|ESC',   style: 'fcn' }
-            ],
-
-            // row 1: more function keys
-            [
-                { model: 4, key: 'black',   id: 'black',                           label: '[OUT]',       style: 'black'  },
-                { model: 4, key: 'blue',    id: 'blue',                            label: '[LOAD]',      style: 'blue'   },
-                { model: 4, key: 'auto',    id: 'autok',                           label: 'AUTO'                         },
-                { model: 4, key: 'fgon',    id: 'fgon',    label2: 'FG ON',        label: 'FLG OFF'                      },
-                { model: 4, key: 'bgon',    id: 'bgon',    label2: 'BG ON',        label: 'FLG ON'                       },
-                { model: 4, key: 'blinkon', id: 'blnkon',                          label: 'BLINK|ON'                     },
-                { model: 4, key: 'bla7off', id: 'bla7off',                         label: 'BL/A7|OFF'                    },
-                { model: 4, key: 'a7on',    id: 'a7on',                            label: 'A7|ON'                        },
-                { model: 4, key: '[',       id: 'vis',     label2: 'VIS',          label: '['                            },
-                { model: 4, key: '\\',      id: 'upa',     label2: '45 UP|&uarr;', label: '\\'                           },
-                { model: 4, key: ']',       id: 'block',   label2: 'BLCK',         label: ']'                            },
-                { model: 4, key: '^',       id: 'user',    label2: 'USER',         label: '^'                            },
-                { model: 4, key: '_',       id: 'crt',     label2: 'CRT',          label: '_'                            }
-            ],
-
-            // row 2:
-            [
-                { model: 4, key: 'red',     id: 'red',       label: '[PUT]',      style: 'red'     },
-                { model: 4, key: 'magenta', id: 'magenta',   label: '[POKE]',     style: 'magenta' },
-            ],
-
-            // row 3:
-            [
-                { model: 4, key: 'green',   id: 'green',     label: '[PLOT]',     style: 'green'             },
-                { model: 4, key: 'cyan',    id: 'cyan',      label: '[PRINT]',    style: 'cyan'              },
-                {                                                                 style: 'spacer', width: 10 },
-                { model: 4, key: 'epage',   id: 'epage',     label: 'ERASE|PAGE', style: 'rstrow'            },
-                { model: 4, key: 'eline',   id: 'eline',     label: 'ERASE|LINE', style: 'rstrow'            },
-                {                                                                 style: 'spacer'            },
-                { model: 4, key: 'cpurst',  id: 'cpurst',    label: 'CPU|RESET',  style: 'rstrow'            }
-            ],
-
-            // row 4:
-            [
-                { model: 4, key: 'yellow', id: 'yellow',     label: '[SAVE]',     style: 'yellow'            },
-                { model: 4, key: 'white',  id: 'white',      label: '[LIST]',     style: 'white'             },
-                {                                                                 style: 'spacer', width: 10 },
-                { model: 4, key: 'delchar', id: 'delchar',   label: 'DELETE|CHAR'                            },
-                { model: 4, key: 'inschar', id: 'inschar',   label: 'INSERT|CHAR'                            },
-                { model: 4, key: 'delline', id: 'delline',   label: 'DELETE|LINE'                            },
-                { model: 4, key: 'insline', id: 'insline',   label: 'INSERT|LINE'                            }
-            ],
-
-            // row 5:
-            [
-                { model: 4, key: 'command',  id: 'command',  label: '[COMMAND]',                   width: 2.0 },
-                {                                                                 style: 'spacer', width: 1.0 },
-                { model: 4, key: 'ctrl',     id: 'ctrl',     label: 'CONTROL',                     width: 1.4 },
-                { model: 4, key: 'shft',     id: 'shftlft',  label: 'SHIFT',                       width: 1.4 }
-            ]
-        ];
-
         // put a span class wrapper around keys which should be in a larger font
         // class "big" is for single letter primary labels (eg, 'A')
         // class "big2" is for multi-letter primary labels (eg, 'HOME')
@@ -1238,14 +1201,13 @@ var ccemu = (function () {
 
         fragment.appendChild(thisdiv);
 
-        var kbtable_src = (kb_model < 4) ? kbtable : kbtable2;
         var row, kbitem, kbitemidx, kbrowlen;
         var pos_y = 0;
-        for (row=0; row < kbtable_src.length; row++) {
+        for (row=0; row < kbtable.length; row++) {
             var pos_x = (kb_model === 1) ? -3 : 0;  // left three columns of keys are all empty
-            for(kbitemidx=0, kbrowlen = kbtable_src[row].length; kbitemidx < kbrowlen; kbitemidx++) {
+            for(kbitemidx=0, kbrowlen = kbtable[row].length; kbitemidx < kbrowlen; kbitemidx++) {
 
-                kbitem = kbtable_src[row][kbitemidx];
+                kbitem = kbtable[row][kbitemidx];
                 var style = (kbitem.model <= kb_model) ? kbitem.style : 'spacer';
                 var thisbut = (style === 'spacer') ? document.createElement('div')
                                                    : document.createElement('button');
@@ -1392,7 +1354,7 @@ var ccemu = (function () {
             setROMVersion('v8.79');
         } else {
             if (url_rom && url_rom !== 'v6.78') {
-                alert("Bad ROM version specified; using v6.78");
+                alert('Bad ROM version specified; using v6.78');
             }
             setROMVersion('v6.78');
         }
@@ -1405,6 +1367,11 @@ var ccemu = (function () {
 
         hardReset();
         runOrDebug('run');
+
+        // for unknown reasons, jquery some time after 1.9.1 started forcing
+        // 'display: inline-block' on the #nval element, overriding the css
+        // specified default 'display: none'.  fight back.
+        $('#nval').css('display', 'none');
     }
 
     // expose public members:
