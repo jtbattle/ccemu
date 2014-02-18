@@ -121,10 +121,30 @@ div#controls p
 
 /* ====================== soundware checkbox ====================== */
 
-div.soundware
+.soundware
 {
     margin-top:5px;
     margin-bottom:5px;
+}
+
+/* hide by default: enable it only if AudioContext is supported */
+.soundware
+{
+    display:none;
+}
+
+/* ==================== speed regulation checkbox ==================== */
+
+.regulate
+{
+    margin-top:5px;
+    margin-bottom:5px;
+}
+
+/* hide by default: enable it only if AudioContext is supported */
+.regulate
+{
+    display:none;
 }
 
 /* ====================== virtual keyboard interface ====================== */
@@ -219,13 +239,7 @@ span#CD0, span#CD1
 }
 
 /* hide by default: is it worth the complexity? */
-.romdiv
-{
-    display:none;
-}
-
-/* hide by default: enable it only if AudioContext is supported */
-.soundware
+.romdiv-NEUTER
 {
     display:none;
 }
@@ -237,13 +251,6 @@ button#run_debug { display: none; }
 #nval
 {
     width:5em;
-}
-
-/* a place to report how long it took to run n instructions */
-#runnmsg
-{
-    font-family:monospace;
-    display:inline;
 }
 
 /* disassembler register window uses fixed width font */

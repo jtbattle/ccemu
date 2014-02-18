@@ -12,7 +12,7 @@
 
 <h1>Compucolor II Emulator</h1>
 
-<p class="dateline">Version: February 12, 2014</p>
+<p class="dateline">Development version: February 17, 2014</p>
 
 <div class="helplinks">
     <span><a href="help.html" target="_blank">Help</a></span>
@@ -57,6 +57,15 @@
           <p id="soundware_debug"></p>
       </div>
 
+      <div class="regulate radios">
+	  <p>Regulate speed:</p>
+	  <label id="regulation_label">
+	      <input type="checkbox" id="regulate_cb" checked>
+	      100%
+	  </label>
+      </div>
+
+
       <div class="romdiv">
 	  <p>ROM version:</p>
 	  <select id="romsel">
@@ -85,7 +94,6 @@
 <div id="screen">
     <canvas id="canv">Your browser don't support the HTML5 canvas element,
                       so the emulator can't run at all. Sorry.</canvas>
-    <p id="runnmsg"></p>
     <div id="drives">
       <div id="drivegroup0">
 	  <p id="drive0"><span id="CD0">CD0:</span> <span id="CD0Label">--empty--</span></p>

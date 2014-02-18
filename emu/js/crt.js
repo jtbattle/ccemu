@@ -252,12 +252,21 @@ var crt = (function () {
     // splat from the offscreen canvas to the visible canvas.
     // the offscreen canvas doesn't know about scroll, so if
     // it is active, we have to put that into action here.
+    var lastBlit = Date.now();
     function blitDisplay() {
 
         if (!dirtyBit) {
             // don't need to do anything if nothing has changed
             return;
         }
+        var now = Date.now();
+        // don't refresh more often than about 30 Hz.
+        // this matters a lot when doing unregulated emulator speed,
+        // where we might attempt 300 blits/sec
+        if (now - lastBlit < 30) {
+            return;
+        }
+        lastBlit = now;
 
         var firstRow = smc5027.firstDisplayRow();
         if (firstRow === 0) {

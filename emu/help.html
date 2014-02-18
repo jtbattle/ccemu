@@ -15,7 +15,6 @@
         background-color:#f4f4e0;
         border-radius:5px;
     }
-    .romdiv-NEUTER { display:none; }
 </style>
 </head>
 <body>
@@ -40,6 +39,7 @@ of the dedicated keys that the Compucolor had (where is the "cyan" key?)
     <li class="romdiv"><a href="#ROMs">ROM Versions</a></li>
     <li><a href="#charset">Character Set</a></li>
     <li><a href="#soundware">Soundware</a></li>
+    <li><a href="#regulate">Regulate speed</a></li>
     <li><a href="#compatibility">Browser Compatibility</a></li>
     <li><a href="#random">Other Random Notes</a></li>
     <li><a href="#missing">Missing Fetures</a></li>
@@ -441,6 +441,21 @@ tension between buffering a lot of samples (to make sure the audio stream
 is never interrupted) and buffering just enough samples (to keep the latency
 low).  With browser technology it isn't possible to strike a great balance,
 so the audio may be a bit laggy at times and a bit choppy other times.
+</p>
+
+<h2><a id="regulate">Regulate speed</a></h2>
+
+<p>
+By default, the emulator aims to make the virtual CC II run at the same
+speed as the real thing.  However, you can uncheck this box and the emulator
+will try to run as fast as your host computer and browser will allow it.
+If soundware is enabled at the same time, the audio will sound choppy.
+</p>
+
+<p>
+Even if the emulator speed is regulated, the emulator will temporarily go
+into unregulated mode while loading a BASIC program from the 'Run a program'
+pulldown on the left side of the display, to save time.
 </p>
 
 <div class="romdiv">

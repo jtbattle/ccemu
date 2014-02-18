@@ -38,11 +38,10 @@
 //                      all webpage requests go to this object
 
 // option flags for jslint:
-/* global console, alert */
+/* global performance, alert */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
 /* global audio, system_rom_6_78, system_rom_8_79 */
-/* global floppy_dbg, saveAs */
-/* global CPU8080 */
+/* global saveAs */
 
 // GLOBALS
 var cpu,
@@ -51,8 +50,8 @@ var cpu,
 // optional UI features
 var enable_debug_interface = false; // simple 8080 debug monitor
 var enable_rom_selection = true;    // allow picking the ROM type
-var showCpuLoad = false;            // display emulator CPU load
-var superfast_cpu = false;          // don't throttle the cpu
+var show_speed_regulation = true;   // show emulator speed throttle
+var regulated_cpu = true;           // throttle to match real ccII speed
 
 //============================================================================
 // emu core
@@ -76,6 +75,11 @@ var ccemu = (function () {
     var numFloppies = 2;
 
     var cur_system_rom;
+
+    // emulation statistics
+    var numCcSlices = 0,
+        numCcInstructions = 0,
+        realMsConsumed = 0;
 
     // --------------------------- constants --------------------------
 
@@ -212,7 +216,7 @@ var ccemu = (function () {
             autotyper.cancel();  // autotype module
         }
 
-        update();         // refresh display
+        update();  // refresh display
     }
 
     // BASIC checks a certain location for the magic value 97H to determine
@@ -229,18 +233,13 @@ var ccemu = (function () {
 
     // real time clock
     function realtime() {
-        return new Date().getTime();
+        return (performance.now) ? performance.now()
+                                 : Date.now();
     }
 
     // performance throttle
     var cpuClocksPerTimeslice = (CPU_FREQ * TIMESLICE_MS / 1000);
     var tickCount = 0;        // cumulative 8080 ticks
-
-    // track what fraction of real time we are consuming during emulation
-    var timeHistoryWindow = 15;  // how many slices to average over
-    var timeHistory = [];        // circular buffer
-    var timeHistoryPtr = 0;      // circular buffer pointer
-    var timeFractionBusy = 1.0;  // portion of time emulation consumes
 
     // javascript uses doubles for numbers, which offer 53b of integer
     // precision, so running at 2MHz, the tickCount will start losing
@@ -266,83 +265,111 @@ var ccemu = (function () {
         // if we are running the autotyper, speed up the cpu in order
         // to reduce the wait to stream in the file.  aim for 90%.
         var autotyping = autotyper.isRunning();
-        // 2.0 instead of 1.0 because timeFractionBusy, for unknown reasons,
-        // indicates more CPU utilization than is real
-        var boost = 2.0 / timeFractionBusy;
-        if (superfast_cpu) {
-            // this is quick & dirty; there is a better way of doing this
-            boost = 8.0 / timeFractionBusy;
-        }
 
         // if audio is enabled, we have a realtime constraint on the
         // production of audio samples, which is more important that
         // precise cpu speed regulation
-        var effCpuClocksPerTimeslice = cpuClocksPerTimeslice * audioBoostFactor;
+        var sliceClkLimit = cpuClocksPerTimeslice * audioBoostFactor;
 
-        var sliceClkLimit = (autotyping)    ? boost*cpuClocksPerTimeslice
-                          : (superfast_cpu) ? boost*cpuClocksPerTimeslice
-                                            : effCpuClocksPerTimeslice;
-
-        var tStart = realtime();
-        var tickLimit = tickCount + sliceClkLimit;
-        for (var i = 0; tickCount < tickLimit; ++i) {
-            singleStep();
-        }
-        var tEnd = realtime();
-
-        // figure out what percent of realtime we are using
-        // skip it during autotyping because we have boosted the CPU
-        if (!autotyping) {
-            var tDiff = tEnd - tStart;
-            timeHistory[timeHistoryPtr] = tDiff;
-            timeHistoryPtr = (timeHistoryPtr + 1) % timeHistoryWindow;
-            if (timeHistory.length === timeHistoryWindow) {
-                var tTotal = timeHistory.reduce(function(a,b) { return a+b; });
-                timeFractionBusy = tTotal / (timeHistory.length * TIMESLICE_MS);
+        var tStart = realtime(),
+            tPrev = tStart;
+        var tNow;
+        var sliceMs, totMs;
+        var tickLimit;
+        var done = false;
+        while (!done) {
+            // simulate one slice worth of 8080 cycles
+            tickLimit = tickCount + sliceClkLimit;
+    
+            while (tickCount < tickLimit) {
+                singleStep();
             }
-
-            if (showCpuLoad) {
-                var percent = (100*timeFractionBusy).toFixed(0).toString();
-                while (percent.length < 3) { percent = ' ' + percent; }
-                percent = 'Emulator consumes <tt>' + percent +
-                          '%</tt> of your CPU';
-                setTimeReport(percent);
-            }
+            // see how much real time has elapsed
+            tNow = realtime();
+            sliceMs = tNow - tPrev;
+            totMs = tNow - tStart;
+            tPrev = tNow;
+            // quit if either we are trying to run realtime,
+            // or if we predict the next slice will lead to
+            // an overshoot of the time slice.
+            done = (regulated_cpu && !autotyping) ||
+                   (totMs + sliceMs >= 0.90*TIMESLICE_MS);
         }
+
+        realMsConsumed += totMs;
+        numCcSlices++;
+    }
+
+    // return the ration of a/b as a percentage string, left padded to 4 digits
+    function percentage(a, b) {
+        var p = (b > 0) ? (100*a / b) : 100;
+        p = p.toFixed(0).toString();
+        while (p.length < 4) { p = ' ' + p; }
+        return p;
+    }
+
+    // display emulation statistics
+    var lastCcSlices, lastCcTickCount, lastCcInstructions, lastMsConsumed;
+    var lastUpdate = 0;
+    function updateStats() {
+        var deltaCcCycles = getTickCount() - lastCcTickCount;
+        var deltaCcSlices = numCcSlices - lastCcSlices;
+        var deltaCcIntructions = numCcInstructions - lastCcInstructions;
+        var deltaMsConsumed = realMsConsumed - lastMsConsumed;
+        var tNow = realtime();
+
+        var load = percentage(deltaMsConsumed, (tNow - lastUpdate));
+        var speed = percentage(deltaCcCycles, deltaCcSlices * cpuClocksPerTimeslice);
+
+        var label = '<input type="checkbox" id="regulate_cb" ' +
+                        ((regulated_cpu) ? 'checked' : '') +
+                    '>' + speed + '%';
+        $('#regulation_label').html(label);
+
+        lastCcTickCount = getTickCount();
+        lastCcInstructions = numCcInstructions;
+        lastCcSlices = numCcSlices;
+        lastMsConsumed = realMsConsumed;
+        lastUpdate = tNow;
+
+        // unused:
+        deltaCcIntructions = deltaCcIntructions;
+        load = load;
     }
 
     // exectute one instruction at the current PC
     function singleStep() {
         var cycles;
         try {
-            if (floppy_dbg) {
-                if (cpu.pc === 0x2286) { console.log('@FG4: gap found'); }
-                if (cpu.pc === 0x22A0) { console.log('@22A0: read header 2nd crc byte, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
-                if (cpu.pc === 0x22A0) { console.log('@22A0: DE=' + cpu.de().toString(16)); }
-                if (cpu.pc === 0x22A5) { console.log('@HER1: wrong track or bad header crc'); }
-                if (cpu.pc === 0x22DB) { console.log('@GH1: good header'); }
-                if (cpu.pc === 0x22DE) { console.log('@GH1b: looking for trk=' + (cpu.af()>>8).toString(16)); }
-            //  if (cpu.pc === 0x22E2) { console.log('@GH2: track ok'); }
-                if (cpu.pc === 0x22E5) { console.log('@GH2b: looking for sec=' + (cpu.af()>>8).toString(16) + ', actual=' + (cpu.hl() & 0xFF).toString(16)); }
-                if (cpu.pc === 0x22E9) { console.log('@GH3: track ok, sector wrong'); }
-                if (cpu.pc === 0x22F3) { console.log('@GH4: found sector, T=' + getTickCount()); }
-                if (cpu.pc === 0x2411) { console.log('@RD00: looking for data mark'); }
-            //  if (cpu.pc === 0x244A) { console.log('@244A: DE=' + cpu.de().toString(16) + ', HL=' + cpu.hl().toString(16)); }
-                if (cpu.pc === 0x2305) { console.log('@2305: @VE00'); }
-                if (cpu.pc === 0x230B) { console.log('@230B: @VERR'); }
-                if (cpu.pc === 0x2322) { console.log('@2322: @VE01'); }
-                if (cpu.pc === 0x2325) { console.log('@2325: @VE01b: read ' + (cpu.af()>>8).toString(16) + ', expecting ' + rd(cpu.hl()).toString(16) + ', hl=' + cpu.hl().toString(16)); }
-                if (cpu.pc === 0x232A) { console.log('@232A: @VE02'); }
-                if (cpu.pc === 0x2336) { console.log('@2336: @VE03'); }
-                if (cpu.pc === 0x233D) { console.log('@233D: @VE04'); }
-                if (cpu.pc === 0x23B4) { console.log('@23B4: writing dummy byte FF, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
-                if (cpu.pc === 0x24CB) { console.log('@24CB: @GDATAMb: read ' + (cpu.af()>>8).toString(16)); }
-                if (cpu.pc === 0x24CE) { console.log('@24CE: @GDATAMc: read ' + (cpu.af()>>8).toString(16)); }
-                if (cpu.pc === 0x24D4) { console.log('@24D4: @GDATAMd: read ' + (cpu.af()>>8).toString(16)); }
-                if (cpu.pc === 0x24DA) { console.log('@24DA: @GDATAMe: read ' + (cpu.af()>>8).toString(16)); }
-            }
+//          if (floppy_dbg) {
+//              if (cpu.pc === 0x2286) { console.log('@FG4: gap found'); }
+//              if (cpu.pc === 0x22A0) { console.log('@22A0: read header 2nd crc byte, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
+//              if (cpu.pc === 0x22A0) { console.log('@22A0: DE=' + cpu.de().toString(16)); }
+//              if (cpu.pc === 0x22A5) { console.log('@HER1: wrong track or bad header crc'); }
+//              if (cpu.pc === 0x22DB) { console.log('@GH1: good header'); }
+//              if (cpu.pc === 0x22DE) { console.log('@GH1b: looking for trk=' + (cpu.af()>>8).toString(16)); }
+//          //  if (cpu.pc === 0x22E2) { console.log('@GH2: track ok'); }
+//              if (cpu.pc === 0x22E5) { console.log('@GH2b: looking for sec=' + (cpu.af()>>8).toString(16) + ', actual=' + (cpu.hl() & 0xFF).toString(16)); }
+//              if (cpu.pc === 0x22E9) { console.log('@GH3: track ok, sector wrong'); }
+//              if (cpu.pc === 0x22F3) { console.log('@GH4: found sector, T=' + getTickCount()); }
+//              if (cpu.pc === 0x2411) { console.log('@RD00: looking for data mark'); }
+//          //  if (cpu.pc === 0x244A) { console.log('@244A: DE=' + cpu.de().toString(16) + ', HL=' + cpu.hl().toString(16)); }
+//              if (cpu.pc === 0x2305) { console.log('@2305: @VE00'); }
+//              if (cpu.pc === 0x230B) { console.log('@230B: @VERR'); }
+//              if (cpu.pc === 0x2322) { console.log('@2322: @VE01'); }
+//              if (cpu.pc === 0x2325) { console.log('@2325: @VE01b: read ' + (cpu.af()>>8).toString(16) + ', expecting ' + rd(cpu.hl()).toString(16) + ', hl=' + cpu.hl().toString(16)); }
+//              if (cpu.pc === 0x232A) { console.log('@232A: @VE02'); }
+//              if (cpu.pc === 0x2336) { console.log('@2336: @VE03'); }
+//              if (cpu.pc === 0x233D) { console.log('@233D: @VE04'); }
+//              if (cpu.pc === 0x23B4) { console.log('@23B4: writing dummy byte FF, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
+//              if (cpu.pc === 0x24CB) { console.log('@24CB: @GDATAMb: read ' + (cpu.af()>>8).toString(16)); }
+//              if (cpu.pc === 0x24CE) { console.log('@24CE: @GDATAMc: read ' + (cpu.af()>>8).toString(16)); }
+//              if (cpu.pc === 0x24D4) { console.log('@24D4: @GDATAMd: read ' + (cpu.af()>>8).toString(16)); }
+//              if (cpu.pc === 0x24DA) { console.log('@24DA: @GDATAMe: read ' + (cpu.af()>>8).toString(16)); }
+//          }
             cycles = cpu.step();
             tickCount += cycles;
+            numCcInstructions++;
             scheduler.tick(cycles);  // look for ripe events
         }
         catch (err) {
@@ -357,7 +384,6 @@ var ccemu = (function () {
             clearInterval(ccemu.interval);
         }
         delete ccemu.interval;
-        clearTimeReport();
         $('#debugger').show(300);
         update();
     }
@@ -499,14 +525,10 @@ var ccemu = (function () {
         });
     }
 
-    function setTimeReport(msg) { $('#runnmsg').html(msg); }
-    function clearTimeReport()  { $('#runnmsg').html(''); }
-
     // (attached to a UI button)
     function run1()
     {
         halt();
-        clearTimeReport();
         singleStep();
         update();
     }
@@ -538,14 +560,7 @@ var ccemu = (function () {
             // Run mode: switch label to Debugger
             $('#run_debug').html('Debugger...');
             $('.debugger').hide(300);
-            if (!showCpuLoad) {
-                clearTimeReport();
-            }
-            // FIXME: should window.requestAnimationFrame() be used instead?
-            //        (with other adjustments, of course)
-            ccemu.interval = setInterval(function () {
-                doCpuTimeslice();
-            }, TIMESLICE_MS);
+            ccemu.interval = setInterval(doCpuTimeslice, TIMESLICE_MS);
         } else {
             // Debug mode: switch label to run
             $('#run_debug').html('Run');
@@ -794,6 +809,18 @@ var ccemu = (function () {
         if (browserSupports.audio) {
             $('#soundware_cb').click(function () {
                 audio.enable(this.checked);
+            });
+        }
+        if (show_speed_regulation) {
+            // because the contents of the div, including the checkbox,
+            // are regenerated every second, we can't just attach the
+            // event handler on the checkbox (without having to rewire the
+            // callback every time).  So catch the event in the parent.
+            $('div.regulate').click(function (evt) {
+                var target = evt.target || evt.srcElement;
+                if (target.id === 'regulate_cb') {
+                    regulated_cpu = target.checked;
+                }
             });
         }
         $('#run_debug').click(function () {
@@ -1309,6 +1336,7 @@ var ccemu = (function () {
         $('#chsetsel').val('Standard');
         $('#romsel').val('v6.78');
         $('#soundware_cb').prop('checked', false);
+        $('#regulate_cb').prop('checked', regulated_cpu);
         $('#vksel').val('Deluxe');
 
         buildVirtualKeyboard(3); // full keyboard, by default
@@ -1319,6 +1347,10 @@ var ccemu = (function () {
         // show it only if it is supported
         if (browserSupports.audio) {
             $('.soundware').show();
+        }
+
+        if (show_speed_regulation) {
+            $('.regulate').show();
         }
 
         // optional ROM version interface
@@ -1367,6 +1399,9 @@ var ccemu = (function () {
 
         hardReset();
         runOrDebug('run');
+
+        // update statistics once per second
+        setInterval(updateStats, 1000);
 
         // for unknown reasons, jquery some time after 1.9.1 started forcing
         // 'display: inline-block' on the #nval element, overriding the css
