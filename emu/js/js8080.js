@@ -270,7 +270,8 @@ Cpu.prototype.addByte = function(lhs, rhs) {
 };
 
 Cpu.prototype.addByteWithCarry = function(lhs, rhs) {
-  return this.addByte(lhs, rhs + ((this.f & Cpu.CARRY) ? 1 : 0));
+  var sum = (lhs + rhs + ((this.f & Cpu.CARRY) ? 1 : 0));
+  return this.calcFlags(sum, lhs, rhs);
 };
 
 Cpu.prototype.subtractByte = function(lhs, rhs) {

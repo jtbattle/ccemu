@@ -47,7 +47,6 @@
 var cpu,
     floppy = [];
 
-
 //============================================================================
 // emu core
 //============================================================================
@@ -79,7 +78,6 @@ var ccemu = (function () {
 
     // emulation statistics
     var numCcSlices = 0,
-        numCcInstructions = 0,
         realMsConsumed = 0;
 
     // --------------------------- constants --------------------------
@@ -310,12 +308,11 @@ var ccemu = (function () {
     }
 
     // display emulation statistics
-    var lastCcSlices, lastCcTickCount, lastCcInstructions, lastMsConsumed;
+    var lastCcSlices, lastCcTickCount, lastMsConsumed;
     var lastUpdate = 0;
     function updateStats() {
         var deltaCcCycles = getTickCount() - lastCcTickCount;
         var deltaCcSlices = numCcSlices - lastCcSlices;
-        var deltaCcIntructions = numCcInstructions - lastCcInstructions;
         var deltaMsConsumed = realMsConsumed - lastMsConsumed;
         var tNow = realtime();
 
@@ -328,13 +325,11 @@ var ccemu = (function () {
         $('#regulation_label').html(label);
 
         lastCcTickCount = getTickCount();
-        lastCcInstructions = numCcInstructions;
         lastCcSlices = numCcSlices;
         lastMsConsumed = realMsConsumed;
         lastUpdate = tNow;
 
         // unused:
-        deltaCcIntructions = deltaCcIntructions;
         load = load;
     }
 
@@ -367,10 +362,9 @@ var ccemu = (function () {
             if (cpu.pc === 0x24D4) { console.log('@24D4: @GDATAMd: read ' + (cpu.af()>>8).toString(16)); }
             if (cpu.pc === 0x24DA) { console.log('@24DA: @GDATAMe: read ' + (cpu.af()>>8).toString(16)); }
         }
-            cycles = cpu.step();
-            tickCount += cycles;
-            numCcInstructions++;
-            scheduler.tick(cycles);  // look for ripe events
+        cycles = cpu.step();
+        tickCount += cycles;
+        scheduler.tick(cycles);  // look for ripe events
 
         return cycles;
     }
@@ -674,7 +668,7 @@ var ccemu = (function () {
         var pd = $(id);
         var opttag = '<option></option>';
         pd.append($(opttag).val('prompt').text('Select a disk...'));
-            pd.append($(opttag).val('empty').text('--empty--'));
+        pd.append($(opttag).val('empty').text('--empty--'));
         if (browserSupports.fileApi) {
             pd.append($(opttag).val('local').text('Use local file...'));
         }
@@ -995,6 +989,7 @@ var ccemu = (function () {
         for (var i = 0; i < system_rom.length; ++i) {
             wrUnsafe(i, system_rom[i]);
         }
+
         // the floppy stepper type is tied to the ROM version
         floppy.forEach(function(elem) {
             elem.setStepperPhases(stepper_phases);
