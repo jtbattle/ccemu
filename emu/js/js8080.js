@@ -125,41 +125,31 @@ Cpu.prototype.HL = function(n) {
   this.l = n & 0xFF;
 };
 
-Cpu.prototype.toString = function() {
-  return "{" +
-    " af: " + pad(this.af(),4) +
-    " bc: " + pad(this.bc(),4) +
-    " de: " + pad(this.de(),4) +
-    " hl: " + pad(this.hl(),4) +
-    " pc: " + pad(this.pc,4) +
-    " sp: " + pad(this.sp,4) +
-    " flags: " +
-    (this.f & Cpu.ZERO ? "z" : ".") +
-    (this.f & Cpu.SIGN ? "s" : ".") +
-    (this.f & Cpu.PARITY ? "p" : ".") +
-    (this.f & Cpu.CARRY ? "c" : ".") +
-    " " + this.disassemble1(this.pc)[1] +
-    " }";
+Cpu.prototype.getRegs = function() {
+  return {
+    'a': this.a,
+    'f': this.f,
+    'b': this.b,
+    'c': this.c,
+    'd': this.d,
+    'e': this.e,
+    'h': this.h,
+    'l': this.l,
+    'af': this.af,
+    'bc': this.bc,
+    'de': this.de,
+    'hl': this.hl,
+    'pc': this.pc,
+    'sp': this.sp
+  };
 };
 
-Cpu.prototype.cpuStatus = function() {
-  var s = "";
-  s += " AF:"+pad(this.af(),4);
-  s += " " +
-       (this.f & Cpu.SIGN ? "s" : ".") +
-       (this.f & Cpu.ZERO ? "z" : ".") +
-       (this.f & Cpu.HALFCARRY ? "h" : ".") +
-       (this.f & Cpu.PARITY ? "p" : ".") +
-       (this.f & Cpu.CARRY ? "c" : ".");
-  s += " BC:"+pad(this.bc(),4);
-  s += " DE:"+pad(this.de(),4);
-  s += " HL:"+pad(this.hl(),4);
-  s += " (HL):"+pad(this.rd(this.hl()),2);
-  s += " SP:"+pad(this.sp,4);
-  s += " PC:"; //+pad(this.pc,4);
-  s += (this.intenable ? "  IE" : " !IE");
-  s += this.disassemble1(this.pc)[1];
-  return s;
+Cpu.prototype.getFlagString = function() {
+  return (this.f & Cpu.SIGN      ? "s" : ".") +
+         (this.f & Cpu.ZERO      ? "z" : ".") +
+	 (this.f & Cpu.HALFCARRY ? "h" : ".") +
+	 (this.f & Cpu.PARITY    ? "p" : ".") +
+	 (this.f & Cpu.CARRY     ? "c" : ".");
 };
 
 // Step through one instruction

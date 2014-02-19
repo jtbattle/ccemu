@@ -38,20 +38,15 @@
 //                      all webpage requests go to this object
 
 // option flags for jslint:
-/* global performance, alert */
+/* global performance, alert, console */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
 /* global audio, system_rom_6_78, system_rom_8_79 */
-/* global saveAs */
+/* global floppy_dbg, saveAs */
 
 // GLOBALS
 var cpu,
     floppy = [];
 
-// optional UI features
-var enable_debug_interface = false; // simple 8080 debug monitor
-var enable_rom_selection = true;    // allow picking the ROM type
-var show_speed_regulation = true;   // show emulator speed throttle
-var regulated_cpu = true;           // throttle to match real ccII speed
 
 //============================================================================
 // emu core
@@ -60,6 +55,12 @@ var regulated_cpu = true;           // throttle to match real ccII speed
 var ccemu = (function () {
 
     'use strict';
+
+    // optional UI features
+    var enable_debug_interface = false; // simple 8080 debug monitor
+    var enable_rom_selection = true;    // allow picking the ROM type
+    var show_speed_regulation = true;   // show emulator speed throttle
+    var regulated_cpu = true;           // throttle to match real ccII speed
 
     // (17.9712 MHz / 9) = 1.9968 MHz =  501 ns cpu clock
     var CPU_FREQ = 1996800;
@@ -340,41 +341,36 @@ var ccemu = (function () {
     // exectute one instruction at the current PC
     function singleStep() {
         var cycles;
-        try {
-//          if (floppy_dbg) {
-//              if (cpu.pc === 0x2286) { console.log('@FG4: gap found'); }
-//              if (cpu.pc === 0x22A0) { console.log('@22A0: read header 2nd crc byte, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
-//              if (cpu.pc === 0x22A0) { console.log('@22A0: DE=' + cpu.de().toString(16)); }
-//              if (cpu.pc === 0x22A5) { console.log('@HER1: wrong track or bad header crc'); }
-//              if (cpu.pc === 0x22DB) { console.log('@GH1: good header'); }
-//              if (cpu.pc === 0x22DE) { console.log('@GH1b: looking for trk=' + (cpu.af()>>8).toString(16)); }
-//          //  if (cpu.pc === 0x22E2) { console.log('@GH2: track ok'); }
-//              if (cpu.pc === 0x22E5) { console.log('@GH2b: looking for sec=' + (cpu.af()>>8).toString(16) + ', actual=' + (cpu.hl() & 0xFF).toString(16)); }
-//              if (cpu.pc === 0x22E9) { console.log('@GH3: track ok, sector wrong'); }
-//              if (cpu.pc === 0x22F3) { console.log('@GH4: found sector, T=' + getTickCount()); }
-//              if (cpu.pc === 0x2411) { console.log('@RD00: looking for data mark'); }
-//          //  if (cpu.pc === 0x244A) { console.log('@244A: DE=' + cpu.de().toString(16) + ', HL=' + cpu.hl().toString(16)); }
-//              if (cpu.pc === 0x2305) { console.log('@2305: @VE00'); }
-//              if (cpu.pc === 0x230B) { console.log('@230B: @VERR'); }
-//              if (cpu.pc === 0x2322) { console.log('@2322: @VE01'); }
-//              if (cpu.pc === 0x2325) { console.log('@2325: @VE01b: read ' + (cpu.af()>>8).toString(16) + ', expecting ' + rd(cpu.hl()).toString(16) + ', hl=' + cpu.hl().toString(16)); }
-//              if (cpu.pc === 0x232A) { console.log('@232A: @VE02'); }
-//              if (cpu.pc === 0x2336) { console.log('@2336: @VE03'); }
-//              if (cpu.pc === 0x233D) { console.log('@233D: @VE04'); }
-//              if (cpu.pc === 0x23B4) { console.log('@23B4: writing dummy byte FF, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
-//              if (cpu.pc === 0x24CB) { console.log('@24CB: @GDATAMb: read ' + (cpu.af()>>8).toString(16)); }
-//              if (cpu.pc === 0x24CE) { console.log('@24CE: @GDATAMc: read ' + (cpu.af()>>8).toString(16)); }
-//              if (cpu.pc === 0x24D4) { console.log('@24D4: @GDATAMd: read ' + (cpu.af()>>8).toString(16)); }
-//              if (cpu.pc === 0x24DA) { console.log('@24DA: @GDATAMe: read ' + (cpu.af()>>8).toString(16)); }
-//          }
+        if (0 && floppy_dbg) {
+            if (cpu.pc === 0x2286) { console.log('@FG4: gap found'); }
+            if (cpu.pc === 0x22A0) { console.log('@22A0: read header 2nd crc byte, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
+            if (cpu.pc === 0x22A0) { console.log('@22A0: DE=' + cpu.de().toString(16)); }
+            if (cpu.pc === 0x22A5) { console.log('@HER1: wrong track or bad header crc'); }
+            if (cpu.pc === 0x22DB) { console.log('@GH1: good header'); }
+            if (cpu.pc === 0x22DE) { console.log('@GH1b: looking for trk=' + (cpu.af()>>8).toString(16)); }
+        //  if (cpu.pc === 0x22E2) { console.log('@GH2: track ok'); }
+            if (cpu.pc === 0x22E5) { console.log('@GH2b: looking for sec=' + (cpu.af()>>8).toString(16) + ', actual=' + (cpu.hl() & 0xFF).toString(16)); }
+            if (cpu.pc === 0x22E9) { console.log('@GH3: track ok, sector wrong'); }
+            if (cpu.pc === 0x22F3) { console.log('@GH4: found sector, T=' + getTickCount()); }
+            if (cpu.pc === 0x2411) { console.log('@RD00: looking for data mark'); }
+        //  if (cpu.pc === 0x244A) { console.log('@244A: DE=' + cpu.de().toString(16) + ', HL=' + cpu.hl().toString(16)); }
+            if (cpu.pc === 0x2305) { console.log('@2305: @VE00'); }
+            if (cpu.pc === 0x230B) { console.log('@230B: @VERR'); }
+            if (cpu.pc === 0x2322) { console.log('@2322: @VE01'); }
+            if (cpu.pc === 0x2325) { console.log('@2325: @VE01b: read ' + (cpu.af()>>8).toString(16) + ', expecting ' + rd(cpu.hl()).toString(16) + ', hl=' + cpu.hl().toString(16)); }
+            if (cpu.pc === 0x232A) { console.log('@232A: @VE02'); }
+            if (cpu.pc === 0x2336) { console.log('@2336: @VE03'); }
+            if (cpu.pc === 0x233D) { console.log('@233D: @VE04'); }
+            if (cpu.pc === 0x23B4) { console.log('@23B4: writing dummy byte FF, T=' + getTickCount() + ', offset=' + floppy[0].getPosition()); }
+            if (cpu.pc === 0x24CB) { console.log('@24CB: @GDATAMb: read ' + (cpu.af()>>8).toString(16)); }
+            if (cpu.pc === 0x24CE) { console.log('@24CE: @GDATAMc: read ' + (cpu.af()>>8).toString(16)); }
+            if (cpu.pc === 0x24D4) { console.log('@24D4: @GDATAMd: read ' + (cpu.af()>>8).toString(16)); }
+            if (cpu.pc === 0x24DA) { console.log('@24DA: @GDATAMe: read ' + (cpu.af()>>8).toString(16)); }
+        }
             cycles = cpu.step();
             tickCount += cycles;
             numCcInstructions++;
             scheduler.tick(cycles);  // look for ripe events
-        }
-        catch (err) {
-            alert('Error name: ' + err.name + ', message: ' + err.message);
-        }
 
         return cycles;
     }
@@ -408,23 +404,15 @@ var ccemu = (function () {
     }
 
     function update() {
-        // FIXME: rather than peeking inside at the cpu members,
-        //        expose an interface for getting the info
-        function cpuflags() {
-            return (cpu.f & Cpu.SIGN ? 's' : '.') +
-                   (cpu.f & Cpu.ZERO ? 'z' : '.') +
-                   (cpu.f & Cpu.HALFCARRY ? 'h' : '.') +
-                   (cpu.f & Cpu.PARITY ? 'p' : '.') +
-                   (cpu.f & Cpu.CARRY ? 'c' : '.');
-        }
-        $('#af').html(hex16(cpu.af()));
-        $('#bc').html(hex16(cpu.bc()));
-        $('#de').html(hex16(cpu.de()));
-        $('#hl').html(hex16(cpu.hl()));
-        $('#pc').html(hex16(cpu.pc));
-        $('#sp').html(hex16(cpu.sp));
-        $('#flags').html(cpuflags());
-        $('#disassemble').html(cpu.disassemble(cpu.pc)[0]);
+        var regs = cpu.getRegs();
+        $('#af').html(hex16(regs.af()));
+        $('#bc').html(hex16(regs.bc()));
+        $('#de').html(hex16(regs.de()));
+        $('#hl').html(hex16(regs.hl()));
+        $('#pc').html(hex16(regs.pc));
+        $('#sp').html(hex16(regs.sp));
+        $('#flags').html(cpu.getFlagString());
+        $('#disassemble').html(cpu.disassemble(regs.pc)[0]);
         crt.refreshDisplay();
         crt.blitDisplay();
     }
@@ -463,12 +451,14 @@ var ccemu = (function () {
         var val = ds[0].value;
         if (val === 'empty') {
             floppy[unit].removeFloppy();
+            ds[0][1].disabled = true;
         } else if (val === 'local') {
             // activate the hidden local file browser control
             di.click();
         } else if (val !== 'prompt') {
             diskRemoteFile(unit, val);
         }
+        // change back to "Select a disk..."
         ds[0].selectedIndex = 0;
         ds.blur();
     }
@@ -508,6 +498,7 @@ var ccemu = (function () {
 //      fr.readAsBinaryString(file);
         function receivedText() {
             floppy[unit].insertFloppy(fr.result);
+            $('#disksel' + unit)[0][1].disabled = (floppy[unit].getStatus() === 'empty');
         }
     }
 
@@ -519,9 +510,11 @@ var ccemu = (function () {
             // keyboard events can activate it inadvertently
             $('#disksel' + unit).blur();
             floppy[unit].insertFloppy(responseTxt);
+            $('#disksel' + unit)[0][1].disabled = (floppy[unit].getStatus() === 'empty');
         }, 'text')
          .fail(function (jqXHR, textStatus) {
             alert('File ' + fileURL + ' failed to load! status=' + textStatus);
+            $('#disksel' + unit)[0][1].disabled = (floppy[unit].getStatus() === 'empty');
         });
     }
 
@@ -681,16 +674,15 @@ var ccemu = (function () {
         var pd = $(id);
         var opttag = '<option></option>';
         pd.append($(opttag).val('prompt').text('Select a disk...'));
-        // FIXME: make this conditional: show it only if the drive is occupied
-        if (1) {
             pd.append($(opttag).val('empty').text('--empty--'));
-        }
         if (browserSupports.fileApi) {
             pd.append($(opttag).val('local').text('Use local file...'));
         }
         for (var n=0; n<disks.length; n++) {
             pd.append($(opttag).val(disks[n].value).text(disks[n].label));
         }
+        pd[0][0].disabled = true;  // "Select a disk..."
+        pd[0][1].disabled = true;  // "--empty--"
     }
 
     // note: all uses are using non-ascii encoding strings,
