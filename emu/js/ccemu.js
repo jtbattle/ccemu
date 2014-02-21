@@ -733,41 +733,15 @@ var ccemu = (function () {
                 alert('param error in setVirtualKeyboardSize()');
                 return;
         }
+
+        // if the size is 'none', disable the layout pulldown
+        $('#vksel').prop('disabled', size === 'none');
     }
 
-    // set the keyboard size based on the current button settings
+    // set the keyboard size based on the current pulldown selection
     function virtualKeyboardResize() {
-        var size;
-        if ($('#vkNone').is(':checked')) {
-            size = 'none';
-        } else if ($('#vkSmall').is(':checked')) {
-            size = 'small';
-        } else if ($('#vkMedium').is(':checked')) {
-            size = 'medium';
-        } else if ($('#vkLarge').is(':checked')) {
-            size = 'large';
-        }
+        var size = $('#vksize')[0].value;
         setVirtualKeyboardSize(size);
-    }
-
-    // handler for gui mouse clicks
-    function virtualKeyboardSize() {
-        var size;
-        if ($('#vkNone').is(':checked')) {
-            size = 'none';
-        } else if ($('#vkSmall').is(':checked')) {
-            size = 'small';
-        } else if ($('#vkMedium').is(':checked')) {
-            size = 'medium';
-        } else if ($('#vkLarge').is(':checked')) {
-            size = 'large';
-        }
-        setVirtualKeyboardSize(size);
-        store.set('vkSize', size);
-
-        // take the focus off the control, otherwise subsequent
-        // keyboard events can activate it inadvertently
-        $('#virtualkeyboard').blur();
     }
 
     function bindEvents() {
@@ -889,10 +863,12 @@ var ccemu = (function () {
         $('#run1').click(run1);
         $('#runn').click(runn);
 
-        $('#vkNone').click(virtualKeyboardSize);
-        $('#vkSmall').click(virtualKeyboardSize);
-        $('#vkMedium').click(virtualKeyboardSize);
-        $('#vkLarge').click(virtualKeyboardSize);
+        $('#vksize').change(function () {
+            var size = this.value;
+            setVirtualKeyboardSize(size);
+            store.set('vkSize', size);
+            this.blur();  // remove focus
+        });
 
         $('#vksel').change(function () {
             var index = this.selectedIndex;  // 0-2
@@ -1378,11 +1354,7 @@ var ccemu = (function () {
             audio.enable(soundware_enabled);
         }
         if (pref_vkSize) {
-            var tag = { 'none':   'vkNone',
-                        'small':  'vkSmall',
-                        'medium': 'vkMedium',
-                        'large':  'vkLarge' }[pref_vkSize];
-            $('#' + tag).prop('checked', true);
+            $('#vksize').val(pref_vkSize);
             virtualKeyboardResize();
         }
         if (pref_vkLayout) {
