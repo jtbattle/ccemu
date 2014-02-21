@@ -871,10 +871,10 @@ var ccemu = (function () {
         });
 
         $('#vksel').change(function () {
-            var index = this.selectedIndex;  // 0-2
-            buildVirtualKeyboard(index + 1);
+            var val = this.value;
+            buildVirtualKeyboard(val);
             virtualKeyboardResize();
-            store.set('vkLayout', ['basic', 'enhanced', 'deluxe'][index]);
+            store.set('vkLayout', val);
         });
 
         // have the div containing the virtual keys catch and delegate events,
@@ -1031,7 +1031,7 @@ var ccemu = (function () {
         return results === null ? "" : decodeURIComponent(results[1].replace(/\+/g, " "));
     }
 
-    // 1=standard, 2=enhanced, 3=deluxe
+    // 'basic', 'enhanced', or 'deluxe'
     function buildVirtualKeyboard(kb_model) {
         // format:
         //    - a list of rows
@@ -1043,6 +1043,7 @@ var ccemu = (function () {
         //            + label2    (the label above the primary label)
         //            + style     (the css class)
         //            + width     (button or spacer width)
+        var kb_idx = { 'basic': 1, 'enhanced': 2, 'deluxe': 3 }[kb_model];
         var kbtable = [
             // row 0: function keys
             [
@@ -1242,11 +1243,12 @@ var ccemu = (function () {
         var row, kbitem, kbitemidx, kbrowlen;
         var pos_y = 0;
         for (row=0; row < kbtable.length; row++) {
-            var pos_x = (kb_model === 1) ? -3 : 0;  // left three columns of keys are all empty
+            // left three columns of keys are all empty in basic kb model
+            var pos_x = (kb_model === 'basic') ? -3 : 0;
             for(kbitemidx=0, kbrowlen = kbtable[row].length; kbitemidx < kbrowlen; kbitemidx++) {
 
                 kbitem = kbtable[row][kbitemidx];
-                var style = (kbitem.model <= kb_model) ? kbitem.style : 'spacer';
+                var style = (kbitem.model <= kb_idx) ? kbitem.style : 'spacer';
                 var thisbut = (style === 'spacer') ? document.createElement('div')
                                                    : document.createElement('button');
 
@@ -1307,88 +1309,76 @@ var ccemu = (function () {
         }
     }
 
-    // set default configuration choices
-    function setDefaultConfig() {
-        $('#ssizesel').val('1.00');
-        $('#chsetsel').val('Standard');
-        $('#romsel').val('v6.78');
-        setROMVersion('v6.78');
-        $('#soundware_cb').prop('checked', false);
-        $('#regulate_cb').prop('checked', regulated_cpu);
-        $('#vkNone').prop('checked', true);
-        $('#vksel').prop('disabled', true);
-        $('#vksel').val('Deluxe');
-        buildVirtualKeyboard(3); // full keyboard, by default
+    // configure the emulator options based on this priority:
+    //      low) default values
+    //      med) stored preferences
+    //     high) URL parameters
+    // only some parameters are settable via URL;
+    // all config options except speed regulation are persistent
+    function configureOptions() {
+
+        // lowest priority: the default values
+        var opt_screenSize = '1.00',      // '1.00', '1.25', etc
+            opt_charGen    = 'standard',  // 'standard', 'lower'
+            opt_soundware  = 'disabled',  // 'enabled', 'disabled'
+            opt_romVersion = 'v6.78',     // 'v6.78' or 'v8.79'
+            opt_vkSize     = 'none',      // 'none', 'small', 'medium', 'large'
+            opt_vkLayout   = 'deluxe';    // 'basic', 'enhanced', 'deluxe'
+
+        $('#regulate_cb').prop('checked', true);
 
         $('#filesel').val('prompt');
         for (var i = 0; i < numFloppies; i++) {
             $('#disksel' + i).val('prompt');
         }
-    }
 
-    // apply preferences
-    function applyPreferences() {
-        var pref_romVersion = store.get('romVersion'),    // v6.78 or v8.79
-            pref_screenSize = store.get('screenSize'),    // 1.00, 1.25, etc
-            pref_charGen    = store.get('charGenerator'), // 'standard', 'lower'
-            pref_soundware  = store.get('soundware'),     // 'enabled', 'disabled'
-            pref_vkSize     = store.get('vkSize'),        // 'none', 'small', 'medium', 'large'
-            pref_vkLayout   = store.get('vkLayout');      // 'basic', 'enhanced', 'deluxe'
+        // medium priority: saved preferences
+        var pref_screenSize = store.get('screenSize'),
+            pref_charGen    = store.get('charGenerator'),
+            pref_romVersion = store.get('romVersion'),
+            pref_soundware  = store.get('soundware'),
+            pref_vkSize     = store.get('vkSize'),
+            pref_vkLayout   = store.get('vkLayout');
 
-        if (pref_romVersion) {
-            setROMVersion(pref_romVersion);
-        }
-        if (pref_screenSize) {
-            setScreenSize(pref_screenSize);
-            // set index in pulldown
-            $('#ssizesel').val(pref_screenSize);
-        }
-        if (pref_charGen) {
-            var chset_idx = {'standard': 0, 'lower': 1}[pref_charGen];
-            var chset_val = ['Standard', 'Lower case'][chset_idx];
-            setCharacterset(chset_idx);
-            $('#chsetsel').val(chset_val);
-        }
-        if (pref_soundware) {
-            var soundware_enabled = (pref_soundware === 'enabled');
-            $('#soundware_cb').prop('checked', soundware_enabled);
-            audio.enable(soundware_enabled);
-        }
-        if (pref_vkSize) {
-            $('#vksize').val(pref_vkSize);
-            virtualKeyboardResize();
-        }
-        if (pref_vkLayout) {
-            var val, index;
-            switch (pref_vkLayout) {
-                case 'basic':
-                    val = 'Basic';
-                    index = 1;
-                    break;
-                case 'enhanced':
-                    val = 'Enhanced';
-                    index = 2;
-                    break;
-                case 'deluxe':
-                    val = 'Deluxe';
-                    index = 3;
-                    break;
-                default:
-                    val = 'Deluxe';
-                    index = 3;
-                    break;
-            }
-            buildVirtualKeyboard(index);
-            $('#vksel').val(val);
-            virtualKeyboardResize(); // this is needed to reset size
-        }
-    }
+        opt_screenSize = pref_screenSize || opt_screenSize;
+        opt_romVersion = pref_romVersion || opt_romVersion;
+        opt_charGen    = pref_charGen    || opt_charGen;
+        opt_soundware  = pref_soundware  || opt_soundware;
+        opt_vkSize     = pref_vkSize     || opt_vkSize;
+        opt_vkLayout   = pref_vkLayout   || opt_vkLayout;
 
-    function applyUrlSettings() {
-        // see if a boot conditions were specified in URL
-        var url_cd0 = getParameterByName('cd0');
-        var url_cd1 = getParameterByName('cd1');
-        var url_rom = getParameterByName('rom');
+        // highest priority: URL parameters
+        var url_romVersion = getParameterByName('rom');
+        if ((url_romVersion === 'v6.78') || (url_romVersion === 'v8.79')) {
+            opt_romVersion = url_romVersion;
+        } else if (url_romVersion !== '') {
+            alert('Bad ROM version specified; using v6.78');
+            opt_romVersion = 'v6.78';
+        }
+
+        // enact configuration options
+        setScreenSize(opt_screenSize);
+        $('#ssizesel').val(opt_screenSize);
+
+        setROMVersion(opt_romVersion);
+
+        var chset_idx = {'standard': 0, 'lower': 1}[opt_charGen];
+        setCharacterset(chset_idx);
+        $('#chsetsel').val(opt_charGen);
+
+        var soundware_enabled = (opt_soundware === 'enabled');
+        $('#soundware_cb').prop('checked', soundware_enabled);
+        audio.enable(soundware_enabled);
+
+        $('#vksize').val(opt_vkSize);
+
+        buildVirtualKeyboard(opt_vkLayout);
+        $('#vksel').val(opt_vkLayout);
+        virtualKeyboardResize();     // needed to ensure consistent size
+
+        // apply other URL parameters
+        var url_cd0  = getParameterByName('cd0');
+        var url_cd1  = getParameterByName('cd1');
         var url_auto = getParameterByName('auto');
 
         if (url_cd0 && url_cd0.match(/\.ccvf$/)) {
@@ -1396,14 +1386,6 @@ var ccemu = (function () {
         }
         if (url_cd1 && url_cd1.match(/\.ccvf$/)) {
             diskRemoteFile(1, url_cd1);
-        }
-
-        // this overrides prefs
-        if ((url_rom === 'v6.78') || (url_rom === 'v8.79')) {
-            setROMVersion(url_rom);
-        } else if (url_rom !== '') {
-            alert('Bad ROM version specified; using v6.78');
-            setROMVersion('v6.78');
         }
 
         if (url_auto === '1') {
@@ -1471,23 +1453,18 @@ var ccemu = (function () {
             $('#run_debug').hide();
         }
 
-        // configure the options
-        setDefaultConfig();
-        applyPreferences();
-        applyUrlSettings();
-
+        configureOptions();
         updateScreenPlacement();
-
         hardReset();
         runOrDebug('run');
-
-        // update statistics once per second
-        setInterval(updateStats, 1000);
 
         // for unknown reasons, jquery some time after 1.9.1 started forcing
         // 'display: inline-block' on the #nval element, overriding the css
         // specified default 'display: none'.  fight back.
         $('#nval').css('display', 'none');
+
+        // update statistics once per second
+        setInterval(updateStats, 1000);
     }
 
     // expose public members:
