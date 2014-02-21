@@ -232,8 +232,11 @@ var ccemu = (function () {
 
     // real time clock
     function realtime() {
-        return (performance.now) ? performance.now()
-                                 : Date.now();
+        if (window.performance && window.performance.now) {
+            return performance.now();
+        } else {
+            return Date.now();
+        }
     }
 
     // performance throttle
