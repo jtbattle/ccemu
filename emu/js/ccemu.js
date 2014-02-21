@@ -40,7 +40,7 @@
 // option flags for jslint:
 /* global performance, alert, console */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
-/* global audio, system_rom_6_78, system_rom_8_79 */
+/* global audio, store, system_rom_6_78, system_rom_8_79 */
 /* global floppy_dbg, saveAs */
 
 // GLOBALS
@@ -279,7 +279,7 @@ var ccemu = (function () {
         while (!done) {
             // simulate one slice worth of 8080 cycles
             tickLimit = tickCount + sliceClkLimit;
-    
+
             while (tickCount < tickLimit) {
                 singleStep();
             }
@@ -570,7 +570,7 @@ var ccemu = (function () {
     // must be a string matching the element 'value'.
     var prevCanvasScale = '1.00';
 
-    function setScreenSize(idx, scaling) {
+    function setScreenSize(scaling) {
         // take the focus off the control, otherwise subsequent
         // keyboard events can activate it inadvertently
         $('#ssizesel').blur();
@@ -607,14 +607,6 @@ var ccemu = (function () {
         crt.setCharset(idx);
         crt.markDirty();
         crt.refreshDisplay();
-    }
-
-    function setROMidx(idx) {
-        // take the focus off the control, otherwise subsequent
-        // keyboard events can activate it inadvertently
-        $('#romsel').blur();
-        var name = (idx === 0) ? 'v6.78' : 'v8.79';
-        setROMVersion(name);
     }
 
     function populateFilePulldown(id) {
@@ -703,6 +695,78 @@ var ccemu = (function () {
         keybrd.virtualKey(keyobj);
     }
 
+    // wire up the virtual keyboard resizing controls based on argument
+    function setVirtualKeyboardSize(size) {
+        var vkbd      = $('#virtualkeyboard');
+        var vkButtons = $('#virtualkeyboard button');
+        var vkBig     = $('#virtualkeyboard button span.big');
+        var vkBig2    = $('#virtualkeyboard button span.big2');
+        switch (size) {
+            case 'none':
+                vkbd.hide(300);
+                break;
+            case 'small':
+                vkbd.show(300);
+                vkbd.css({ 'font-size': '8px' });
+                vkButtons.css({ 'font-size': '8px' });
+                vkBig2.css({ 'font-size': '9px' });
+                vkBig.css({ 'font-size': '11px' });
+                break;
+            case 'medium':
+                vkbd.show(300);
+                vkbd.css({ 'font-size': '9px' });
+                vkButtons.css({ 'font-size': '9px' });
+                vkBig2.css({ 'font-size': '10px' });
+                vkBig.css({ 'font-size': '12px' });
+                break;
+            case 'large':
+                vkbd.show(300);
+                vkbd.css({ 'font-size': '10px' });
+                vkButtons.css({ 'font-size': '10px' });
+                vkBig2.css({ 'font-size': '11px' });
+                vkBig.css({ 'font-size': '13px' });
+                break;
+            default:
+                alert('param error in setVirtualKeyboardSize()');
+                return;
+        }
+    }
+
+    // set the keyboard size based on the current button settings
+    function virtualKeyboardResize() {
+        var size;
+        if ($('#vkNone').is(':checked')) {
+            size = 'none';
+        } else if ($('#vkSmall').is(':checked')) {
+            size = 'small';
+        } else if ($('#vkMedium').is(':checked')) {
+            size = 'medium';
+        } else if ($('#vkLarge').is(':checked')) {
+            size = 'large';
+        }
+        setVirtualKeyboardSize(size);
+    }
+
+    // handler for gui mouse clicks
+    function virtualKeyboardSize() {
+        var size;
+        if ($('#vkNone').is(':checked')) {
+            size = 'none';
+        } else if ($('#vkSmall').is(':checked')) {
+            size = 'small';
+        } else if ($('#vkMedium').is(':checked')) {
+            size = 'medium';
+        } else if ($('#vkLarge').is(':checked')) {
+            size = 'large';
+        }
+        setVirtualKeyboardSize(size);
+        store.set('vkSize', size);
+
+        // take the focus off the control, otherwise subsequent
+        // keyboard events can activate it inadvertently
+        $('#virtualkeyboard').blur();
+    }
+
     function bindEvents() {
 
         // add "Fullscreen" screen size option only if the browser supports it
@@ -779,22 +843,28 @@ var ccemu = (function () {
             $('#drive' + n).click(make_diskSaveHandler(n));
         }
         $('#ssizesel').change(function () {
-            var index = this.selectedIndex;
             var val = this.value;
-            setScreenSize(index, val);
+            setScreenSize(val);
+            store.set('screenSize', val);
         });
         $('#chsetsel').change(function () {
             var index = this.selectedIndex;
             setCharacterset(index);
+            store.set('charGenerator', ['standard', 'lower'][index]);
         });
         $('#romsel').change(function () {
-            var index = this.selectedIndex;
-            setROMidx(index);
+            var name = this.value;
+            setROMVersion(name);
+            store.set('romVersion', name);
             ccemu.hardReset();
+            // take the focus off the control, otherwise subsequent
+            // keyboard events can activate it inadvertently
+            this.blur();
         });
         if (browserSupports.audio) {
             $('#soundware_cb').click(function () {
                 audio.enable(this.checked);
+                store.set('soundware', this.checked ? 'enabled' : 'disabled');
             });
         }
         if (show_speed_regulation) {
@@ -816,47 +886,16 @@ var ccemu = (function () {
         $('#run1').click(run1);
         $('#runn').click(runn);
 
-        // wire up the virtual keyboard resizing controls
-        function virtualKeyboardSize() {
-            var vkbd      = $('#virtualkeyboard');
-            var vkButtons = $('#virtualkeyboard button');
-            var vkBig     = $('#virtualkeyboard button span.big');
-            var vkBig2    = $('#virtualkeyboard button span.big2');
-            if ($('#vkNone').is(':checked')) {
-                vkbd.hide(300);
-            } else if ($('#vkSmall').is(':checked')) {
-                vkbd.show(300);
-                vkbd.css({ 'font-size': '8px' });
-                vkButtons.css({ 'font-size': '8px' });
-                vkBig2.css({ 'font-size': '9px' });
-                vkBig.css({ 'font-size': '11px' });
-            } else if ($('#vkMedium').is(':checked')) {
-                vkbd.show(300);
-                vkbd.css({ 'font-size': '9px' });
-                vkButtons.css({ 'font-size': '9px' });
-                vkBig2.css({ 'font-size': '10px' });
-                vkBig.css({ 'font-size': '12px' });
-            } else if ($('#vkLarge').is(':checked')) {
-                vkbd.show(300);
-                vkbd.css({ 'font-size': '10px' });
-                vkButtons.css({ 'font-size': '10px' });
-                vkBig2.css({ 'font-size': '11px' });
-                vkBig.css({ 'font-size': '13px' });
-            }
-            // take the focus off the control, otherwise subsequent
-            // keyboard events can activate it inadvertently
-            vkbd.blur();
-        }
         $('#vkNone').click(virtualKeyboardSize);
         $('#vkSmall').click(virtualKeyboardSize);
         $('#vkMedium').click(virtualKeyboardSize);
         $('#vkLarge').click(virtualKeyboardSize);
-        $('#vkNone').prop('checked', true);  // default
 
         $('#vksel').change(function () {
-            var index = this.selectedIndex;  // 0-3
+            var index = this.selectedIndex;  // 0-2
             buildVirtualKeyboard(index + 1);
-            virtualKeyboardSize();
+            virtualKeyboardResize();
+            store.set('vkLayout', ['basic', 'enhanced', 'deluxe'][index]);
         });
 
         // have the div containing the virtual keys catch and delegate events,
@@ -962,6 +1001,12 @@ var ccemu = (function () {
             browserSupports.blob = !!new Blob();
         } catch (e) {
             browserSupports.blob = false;
+        }
+
+        // localstorage
+        browserSupports.localstore = store.enabled;
+        if (!browserSupports.localstore) {
+            alert('Local storage is not supported -- prefs not persistent');
         }
     }
 
@@ -1283,6 +1328,115 @@ var ccemu = (function () {
         }
     }
 
+    // set default configuration choices
+    function setDefaultConfig() {
+        $('#ssizesel').val('1.00');
+        $('#chsetsel').val('Standard');
+        $('#romsel').val('v6.78');
+        setROMVersion('v6.78');
+        $('#soundware_cb').prop('checked', false);
+        $('#regulate_cb').prop('checked', regulated_cpu);
+        $('#vkNone').prop('checked', true);
+        $('#vksel').val('Deluxe');
+        buildVirtualKeyboard(3); // full keyboard, by default
+
+        $('#filesel').val('prompt');
+        for (var i = 0; i < numFloppies; i++) {
+            $('#disksel' + i).val('prompt');
+        }
+    }
+
+    // apply preferences
+    function applyPreferences() {
+        var pref_romVersion = store.get('romVersion'),    // v6.78 or v8.79
+            pref_screenSize = store.get('screenSize'),    // 1.00, 1.25, etc
+            pref_charGen    = store.get('charGenerator'), // 'standard', 'lower'
+            pref_soundware  = store.get('soundware'),     // 'enabled', 'disabled'
+            pref_vkSize     = store.get('vkSize'),        // 'none', 'small', 'medium', 'large'
+            pref_vkLayout   = store.get('vkLayout');      // 'basic', 'enhanced', 'deluxe'
+
+        if (pref_romVersion) {
+            setROMVersion(pref_romVersion);
+        }
+        if (pref_screenSize) {
+            setScreenSize(pref_screenSize);
+            // set index in pulldown
+            $('#ssizesel').val(pref_screenSize);
+        }
+        if (pref_charGen) {
+            var chset_idx = {'standard': 0, 'lower': 1}[pref_charGen];
+            var chset_val = ['Standard', 'Lower case'][chset_idx];
+            setCharacterset(chset_idx);
+            $('#chsetsel').val(chset_val);
+        }
+        if (pref_soundware) {
+            var soundware_enabled = (pref_soundware === 'enabled');
+            $('#soundware_cb').prop('checked', soundware_enabled);
+            audio.enable(soundware_enabled);
+        }
+        if (pref_vkSize) {
+            var tag = { 'none':   'vkNone',
+                        'small':  'vkSmall',
+                        'medium': 'vkMedium',
+                        'large':  'vkLarge' }[pref_vkSize];
+            $('#' + tag).prop('checked', true);
+            virtualKeyboardResize();
+        }
+        if (pref_vkLayout) {
+            var val, index;
+            switch (pref_vkLayout) {
+                case 'basic':
+                    val = 'Basic';
+                    index = 1;
+                    break;
+                case 'enhanced':
+                    val = 'Enhanced';
+                    index = 2;
+                    break;
+                case 'deluxe':
+                    val = 'Deluxe';
+                    index = 3;
+                    break;
+                default:
+                    val = 'Deluxe';
+                    index = 3;
+                    break;
+            }
+            buildVirtualKeyboard(index);
+            $('#vksel').val(val);
+            virtualKeyboardResize(); // this is needed to reset size
+        }
+    }
+
+    function applyUrlSettings() {
+        // see if a boot conditions were specified in URL
+        var url_cd0 = getParameterByName('cd0');
+        var url_cd1 = getParameterByName('cd1');
+        var url_rom = getParameterByName('rom');
+        var url_auto = getParameterByName('auto');
+
+        if (url_cd0 && url_cd0.match(/\.ccvf$/)) {
+            diskRemoteFile(0, url_cd0);
+        }
+        if (url_cd1 && url_cd1.match(/\.ccvf$/)) {
+            diskRemoteFile(1, url_cd1);
+        }
+
+        // this overrides prefs
+        if ((url_rom === 'v6.78') || (url_rom === 'v8.79')) {
+            setROMVersion(url_rom);
+        } else if (url_rom !== '') {
+            alert('Bad ROM version specified; using v6.78');
+            setROMVersion('v6.78');
+        }
+
+        if (url_auto === '1') {
+            scheduler.oneShot( Math.floor(3.0*CPU_FREQ),
+                    function () { keybrd.virtualKey({ key: 'auto' }); },
+                    'autotimer');
+        }
+    }
+
     // this is called when the DOM is completely loaded,
     // and begins the emulation
     function startEmu() {
@@ -1314,19 +1468,6 @@ var ccemu = (function () {
         for (i = 0; i < numFloppies; i++) {
             populateFloppyPulldown('#disksel' + i);
         }
-        // default selections:
-        $('#filesel').val('prompt');
-        for (i = 0; i < numFloppies; i++) {
-            $('#disksel' + i).val('prompt');
-        }
-        $('#ssizesel').val('1.00');
-        $('#chsetsel').val('Standard');
-        $('#romsel').val('v6.78');
-        $('#soundware_cb').prop('checked', false);
-        $('#regulate_cb').prop('checked', regulated_cpu);
-        $('#vksel').val('Deluxe');
-
-        buildVirtualKeyboard(3); // full keyboard, by default
 
         // connect functions up to html elements
         bindEvents();
@@ -1354,35 +1495,12 @@ var ccemu = (function () {
             $('#run_debug').hide();
         }
 
+        // configure the options
+        setDefaultConfig();
+        applyPreferences();
+        applyUrlSettings();
+
         updateScreenPlacement();
-
-        // see if a boot conditions were specified
-        var url_cd0 = getParameterByName('cd0');
-        var url_cd1 = getParameterByName('cd1');
-        var url_rom = getParameterByName('rom');
-        var url_auto = getParameterByName('auto');
-
-        if (url_cd0 && url_cd0.match(/\.ccvf$/)) {
-            diskRemoteFile(0, url_cd0);
-        }
-        if (url_cd1 && url_cd1.match(/\.ccvf$/)) {
-            diskRemoteFile(1, url_cd1);
-        }
-
-        if (url_rom === 'v8.79') {
-            setROMVersion('v8.79');
-        } else {
-            if (url_rom && url_rom !== 'v6.78') {
-                alert('Bad ROM version specified; using v6.78');
-            }
-            setROMVersion('v6.78');
-        }
-
-        if (url_auto === '1') {
-            scheduler.oneShot( Math.floor(3.0*CPU_FREQ),
-                    function () { keybrd.virtualKey({ key: 'auto' }); },
-                    'autotimer');
-        }
 
         hardReset();
         runOrDebug('run');
