@@ -1316,6 +1316,7 @@ var ccemu = (function () {
         $('#soundware_cb').prop('checked', false);
         $('#regulate_cb').prop('checked', regulated_cpu);
         $('#vkNone').prop('checked', true);
+        $('#vksel').prop('disabled', true);
         $('#vksel').val('Deluxe');
         buildVirtualKeyboard(3); // full keyboard, by default
 

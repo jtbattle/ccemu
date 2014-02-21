@@ -35,26 +35,6 @@ the work and encouragement of others.
         writing an emulator.  I'm embarrassed to say that was back in 2002,
         and it has taken me over a decade to make good on my intentions.
     </li>
-    <li>The code to emulate the 8080 CPU was written by
-        <a href="http://www.bluishcoder.co.nz/">Chris Double</a>
-        for a
-        <a href="http://www.bluishcoder.co.nz/js8080/">space invaders</a>
-        emulator, and he graciously gave permission to use it.
-    </li>
-    <li>Stefan Tramm improved on Chris Double's 8080 code by fixing a
-        few bugs, then used it in his excellent
-        <a href="http://www.tramm.li/i8080/">8080 CPU Emulator</a>,
-        which emulates a running CP/M system right in your browser,
-        including a TTY and floppy disks.
-    </li>
-    <li>A shim to allow using the javascript Audio API across a range
-        of browsers came from Chris Wilson (AudioContextMonkeyPatch.js).
-    </li>
-    <li>The snazzy animation to make the debugger window open up and
-        close, plus some behind the scenes logic to position elements
-        when the virtual Compucolor II CRT is resized was done via the popular
-        <a href="http://jquery.com/">jQuery</a> core library.
-    </li>
     <li><a href="http://www.rit.edu/cla/philosophy/Suits.html">Dr. David B. Suits</a>
         didn't realize it, but he lit a fire under me to finally make the
         time to write this emulator.  I had spent nearly a decade with the
@@ -72,9 +52,48 @@ the work and encouragement of others.
         30 year old programs to figure out what it is doing that causes the
         emulator to behave incorrectly.
     </li>
+    <li>This code makes use of javascript libraries generously shared by other
+        developers:
+        <ul>
+            <li>The 8080 CPU emulator from
+                <a href="http://www.bluishcoder.co.nz/">Chris Double</a>'s
+                <a href="http://www.bluishcoder.co.nz/js8080/">space invaders emulator</a>
+            </li>
+            <li>Stefan Tramm made some bug fixes to the above code in his
+                <a href="http://www.tramm.li/i8080/">8080 CPU Emulator</a>
+            </li>
+            <li>The ubiquitous 
+                <a href="http://jquery.com/">jQuery</a> core library
+            </li>
+            <li>Chris Wilson's audio API shim,
+                <a href="https://github.com/cwilso/AudioContext-MonkeyPatch">AudioContextMonkeyPatch.js</a>
+            </li>
+            <li>Eli Grey's
+                <a href="https://github.com/eligrey/FileSaver.js">FileSaver.js</a>
+            </li>
+            <li>Marcus Westin's
+                <a href="https://github.com/marcuswestin/store.js/">store.js</a>,
+                which is used for persistent storage of emulator preferences
+            </li>
+        </ul>
+    </li>
 </ul>
 
-<h3>Version 2014.02.12</h3>
+<h3>Version 2014.02.20 (pre-release progress)</h3>
+
+<ul>
+    <li>Made configuration preferences persistent</li>
+    <li>Added an option to allow the emulator to run without speed regulation;
+        reworked the cpu speed regulation logic, helping the speed of both
+        autotyping and unregulated CPU mode.</li>
+    <li>Modified the virtual keyboard selection controls, although the overall
+        functionality is unchanged</li>
+    <li>The disk selection pulldown disables the "--empty--" choice if the
+        drive is already empty</li>
+    <li>Fixed a bug in the last aux carry flag in the ADC instruction</li>
+</ul>
+
+<h3>Version 2014.02.14</h3>
 
 <p>This release benefited greatly from Garry Epps' massive help in spotting
 modeling problems, reverse engineering some misbehaving programs, and writing
