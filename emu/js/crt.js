@@ -364,6 +364,11 @@ var crt = (function () {
         return [ onscreen.width, onscreen.height ];
     }
 
+    // in px
+    function getCanvasMargin() {
+        return $('#canv').css('border-left-width').replace('px','');
+    }
+
     // this is called every frame refresh period.
     // it is kind of a lie: vsync happens each field in the real hardware,
     // but i'm using here as if the display was progressive.
@@ -401,7 +406,8 @@ var crt = (function () {
         'markDirty':       markDirty,
         'blitDisplay':     blitDisplay,
         'setCanvasSize':   setCanvasSize,
-        'getCanvasSize':   getCanvasSize
+        'getCanvasSize':   getCanvasSize,
+        'getCanvasMargin': getCanvasMargin
     };
 
 }());  // crt

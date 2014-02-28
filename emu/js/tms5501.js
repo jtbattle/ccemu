@@ -561,7 +561,7 @@ var tms5501 = (function () {
                     (masked & 0x10) ? 0xE7 :   // RST 4
                     (masked & 0x20) ? 0xEF :   // RST 5
                     (masked & 0x40) ? 0xF7 :   // RST 6
-                    (masked & 0x80) ? 0xFF :
+                    (masked & 0x80) ? 0xFF :   // RST 7
                                       undefined;
         return rstOp;
     }
@@ -585,6 +585,9 @@ var tms5501 = (function () {
         if (txdataCount < 1) {
             intStatus |= 0x20;
         }
+
+        // clearing a bit might affect int requeset
+        checkInterruptStatus();
     }
 
     // this is called any time the interrupt request state might have

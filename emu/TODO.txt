@@ -8,6 +8,9 @@ changes since 2014-02-12 release:
   reworked the cpu speed regulation logic, helping the speed of both
   autotyping and unregulated CPU mode.
 
+* modified the virtual keyboard selection controls, although the overall
+  functionality is unchanged
+
 * the disk selection pulldown disables the "--empty--" choice if the
   drive is already empty
 

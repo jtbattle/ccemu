@@ -40,6 +40,7 @@ of the dedicated keys that the Compucolor had (where is the "cyan" key?)
     <li><a href="#charset">Character Set</a></li>
     <li><a href="#soundware">Soundware</a></li>
     <li><a href="#regulate">Regulate speed</a></li>
+    <li><a href="#joystick">Joystick</a></li>
     <li><a href="#compatibility">Browser Compatibility</a></li>
     <li><a href="#random">Other Random Notes</a></li>
     <li><a href="#missing">Missing Fetures</a></li>
@@ -456,6 +457,22 @@ If soundware is enabled at the same time, the audio will sound choppy.
 Even if the emulator speed is regulated, the emulator will temporarily go
 into unregulated mode while loading a BASIC program from the 'Run a program'
 pulldown on the left side of the display, to save time.
+</p>
+
+<h2><a id="joystick">Joystick</a></h2>
+
+<p>
+There was a board, probably rare, which was an add-on to the Compucolor
+which had an AY-3-8910 sound chip and joystick interfaces.  The joystick
+part of it is emulated because there are a few disks in the collection
+which require the use of the joystick.
+</p>
+
+<p>
+The X position is mapped such that the left edge of the CRT screen is 0
+and the right edge is 255. The Y position is mapped with 255 along the top
+edge of the screen and 0 at the bottom.  Pressing the left mouse button
+maps to the joystick "fire" button.
 </p>
 
 <div class="romdiv">

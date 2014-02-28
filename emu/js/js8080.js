@@ -947,6 +947,9 @@ Cpu.prototype.execute = function(i) {
 
     case 0x76: // HALT
       this.halted = true;
+      if (!this.intenable) {
+        alert("halted with intenble=0 at pc=0x" + this.pc.toString(16));
+      }
       cycles = 7;
       break;
 
@@ -1745,6 +1748,11 @@ Cpu.prototype.execute = function(i) {
       break;
 
     default: // illegal
+      if (i === undefined) {
+        alert("halted at pc=0x" + this.pc.toString(16) + ' with op=undefined');
+      } else {
+        alert("halted at pc=0x" + this.pc.toString(16) + ' with op=0x' + i.toString(16));
+      }
       this.halted = true;
       cycles = 4;
       break;

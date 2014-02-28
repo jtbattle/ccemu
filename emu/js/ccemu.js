@@ -34,13 +34,14 @@
 //     scheduler -- an 8080-tick based scheduler
 //     floppy    -- two floppy disk drives
 //     audio     -- soundware emulation
+//     joystick  -- joystick emulation
 //     ccemu     -- the master controller:
 //                      all webpage requests go to this object
 
 // option flags for jslint:
 /* global performance, alert, console */
 /* global Cpu, Floppy, crt, tms5501, smc5027, keybrd, autotyper, scheduler */
-/* global audio, store, system_rom_6_78, system_rom_8_79 */
+/* global joystick, audio, store, system_rom_6_78, system_rom_8_79 */
 /* global floppy_dbg, saveAs */
 
 // GLOBALS
@@ -148,6 +149,8 @@ var ccemu = (function () {
 
     function input(port) {
 
+        var joy; // joystick
+
         // TMS5501 I/O chip
         if (port >= 0x00 && port <= 0x1F) {
             return tms5501.rd(port & 0x0F);
@@ -172,6 +175,28 @@ var ccemu = (function () {
         // if (0x80 <= port && port < 0x9F) {
         //     return crt_timing_rom[port - 0x80];
         // }
+
+        // 3rd party joystick
+        if ((port === 0x20) || (port === 0xA0)) {
+            // 0xA0 on 3650, 0x20 on ccII
+            joy = joystick.state();
+            return joy.x;
+        } else if ((port === 0x21) || (port === 0xA1)) {
+            // 0xA1 on 3650, 0x21 on ccII
+            joy = joystick.state();
+            return joy.y;
+        } else if ((port === 0x30) || (port === 0xB0)) {
+            // 0xB0 on 3650, 0x30 on ccII
+            // read status
+            //   bit 3: joystick 0: 0=pressed, 1=not pressed
+            //   bit 7: ADC status: 1=done, 0=processing
+            joy = joystick.state();
+            var rv = 0x88;  // just claim DAC results are ready
+            if (joy.button) {
+                rv &= ~0x08;  // 0=pressed
+            }
+            return rv;
+        }
 
         // it turns out that in real hardware, INP(P) for an unmapped port P
         // returns P!  This is because the last byte on the data bus was P,
@@ -1412,6 +1437,7 @@ var ccemu = (function () {
             floppy.push(new Floppy(i));
         }
         crt.init();
+        joystick.init();
         smc5027.init();
 
         // set up period events -- return objects are ignored because they
