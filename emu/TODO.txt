@@ -8,6 +8,8 @@ changes since 2014-02-12 release:
   reworked the cpu speed regulation logic, helping the speed of both
   autotyping and unregulated CPU mode.
 
+* added support for 3rd party joystick (used by a few games)
+
 * modified the virtual keyboard selection controls, although the overall
   functionality is unchanged
 
@@ -17,8 +19,6 @@ changes since 2014-02-12 release:
 * fixed on last aux carry flag bug, on ADC instruction
 
 ----- emulator TODO list -----
-
-add joystick emulation (garry epps sent some notes on the model)
 
 soundware emulation corner case:
     taylor/taylor_2.ccvf, STREK2.BAS invokes XXXXXX.BAS, which seems

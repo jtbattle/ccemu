@@ -73,11 +73,9 @@ var joystick = (function () {
         var evt = event || window.event;  // IE
         cur_x = evt.clientX;
         cur_y = evt.clientY;
-//console.log("x=" + cur_x + ", y=" + cur_y);
     }
 
     function getJoyState() {
-        // var canv = $('#canv');
         var canv = $('#canv');
         var offset = canv.offset();
         var offset_w = canv.width();
@@ -88,12 +86,12 @@ var joystick = (function () {
         var y = Math.floor(255 * (cur_y - offset.top  - margin) / offset_h + 0.5);
         y = 255 - y;  // y is inverted: 255 is top, 0 is bottom
 
+        // clamp
         x = Math.max(x, 0);
         y = Math.max(y, 0);
         x = Math.min(x, 255);
         y = Math.min(y, 255);
 
-        // console.log('x=' + x + ', y=' + y + ', but=' + cur_button);
         return { 'x': x, 'y': y, 'button': cur_button };
     }
 
