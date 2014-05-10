@@ -1430,7 +1430,7 @@ var ccemu = (function () {
         var cbIntVec = tms5501.getIntVector;  // interrupt vector callback
         cpu = new Cpu(ram, rd, wr, input, output, cbIntVec);
         for (i = 0; i < numFloppies; i++) {
-            floppy.push(new Floppy(i));
+            floppy.push(new Floppy(i)); // new unnecessary, but jshint complains
         }
         crt.init();
         joystick.init();

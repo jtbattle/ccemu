@@ -937,7 +937,6 @@ function Floppy(unit_num) {
     }
 
     return {
-        'constructor'      : Floppy,
         'setStepperPhases' : setStepperPhases,
         'getPosition'      : function () { return curPosition; },  // FIXME: here just for debugging
         'reset'            : reset,

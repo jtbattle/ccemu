@@ -363,1400 +363,1414 @@ Cpu.prototype.irq = function(req) {
 Cpu.prototype.execute = function(i) {
   var cycles, a, c, h, w, b7, addr;
 
-  switch (i) {
-
-    case 0x00: // NOP
-      cycles = 4;
-      break;
-
-    case 0x01: // LD BC,nn
-      this.BC(this.nextWord());
-      cycles = 10;
-      break;
-
-    case 0x02: // LD (BC),A
-      this.writeByte(this.bc(), this.a);
-      cycles = 7;
-      break;
-
-    case 0x03: // INC BC
-      this.BC((this.bc() + 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x04: // INC  B
-      this.b = this.incrementByte(this.b);
-      cycles = 5;
-      break;
-
-    case 0x05: // DEC  B
-      this.b = this.decrementByte(this.b);
-      cycles = 5;
-      break;
-
-    case 0x06: // LD   B,n
-      this.b = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x07: // RLCA
-      b7 = (this.a & 0x80) >> 7;
-      if (b7) {
-        this.f |= Cpu.CARRY;
-      } else {
-        this.f &= ~Cpu.CARRY & 0xFF;
-      }
-      this.a = ((this.a << 1) & 0xFE) | b7;
-      cycles = 4;
-      break;
-
-    case 0x09: // ADD  HL,BC
-      this.HL(this.addWord(this.hl(), this.bc()));
-      cycles = 11;
-      break;
-
-    case 0x0A: // LD   A,(BC)
-      this.a = this.rd(this.bc());
-      cycles = 7;
-      break;
-
-    case 0x0B: // DEC  BC
-      this.BC((this.bc() - 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x0C: // INC  C
-      this.c = this.incrementByte(this.c);
-      cycles = 5;
-      break;
-
-    case 0x0D: // DEC  C
-      this.c = this.decrementByte(this.c);
-      cycles = 5;
-      break;
-
-    case 0x0E: // LD   C,n
-      this.c = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x0F: // RRCA
-      h = (this.a & 1) << 7;
-      if (h) {
-        this.f |= Cpu.CARRY;
-      } else {
-        this.f &= ~Cpu.CARRY & 0xFF;
-      }
-      this.a = ((this.a >> 1) & 0x7F) | h;
-      cycles = 4;
-      break;
-
-    case 0x11: // LD   DE,nn
-      this.DE(this.nextWord());
-      cycles = 10;
-      break;
-
-    case 0x12: // LD   (DE),A
-      this.writeByte(this.de(), this.a);
-      cycles = 7;
-      break;
-
-    case 0x13: // INC  DE
-      this.DE((this.de() + 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x14: // INC  D
-      this.d = this.incrementByte(this.d);
-      cycles = 5;
-      break;
-
-    case 0x15: // DEC  D
-      this.d = this.decrementByte(this.d);
-      cycles = 5;
-      break;
-
-    case 0x16: // LD   D,n
-      this.d = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x17: // RLA
-      c = (this.f & Cpu.CARRY) ? 1 : 0;
-      if (this.a & 0x80) {
-        this.f |= Cpu.CARRY;
-      } else {
-        this.f &= ~Cpu.CARRY & 0xFF;
-      }
-      this.a = ((this.a << 1) & 0xFE) | c;
-      cycles = 4;
-      break;
-
-    case 0x19: // ADD  HL,DE
-      this.HL(this.addWord(this.hl(), this.de()));
-      cycles = 11;
-      break;
-
-    case 0x1A: // LD   A,(DE)
-      this.a = this.rd(this.de());
-      cycles = 7;
-      break;
-
-    case 0x1B: // DEC  DE
-      this.DE((this.de() - 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x1C: // INC  E
-      this.e = this.incrementByte(this.e);
-      cycles = 5;
-      break;
-
-    case 0x1D: // DEC  E
-      this.e = this.decrementByte(this.e);
-      cycles = 5;
-      break;
-
-    case 0x1E: // LD   E,n
-      this.e = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x1F: // RRA
-      c = (this.f & Cpu.CARRY) ? 0x80 : 0;
-      if (this.a & 1) {
-        this.f |= Cpu.CARRY;
-      } else {
-        this.f &= ~Cpu.CARRY & 0xFF;
-      }
-      this.a = ((this.a >> 1) & 0x7F) | c;
-      cycles = 4;
-      break;
-
-    case 0x21: // LD   HL,nn
-      this.HL(this.nextWord());
-      cycles = 10;
-      break;
-
-    case 0x22: // LD   (nn),HL
-      this.writeWord(this.nextWord(), this.hl());
-      cycles = 16;
-      break;
-
-    case 0x23: // INC  HL
-      this.HL((this.hl() + 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x24: // INC  H
-      this.h = this.incrementByte(this.h);
-      cycles = 5;
-      break;
-
-    case 0x25: // DEC  H
-      this.h = this.decrementByte(this.h);
-      cycles = 5;
-      break;
-
-    case 0x26: // LD   H,n
-      this.h = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x27: // DAA
-      this.a = this.daa();
-      cycles = 4;
-      break;
-
-    case 0x29: // ADD  HL,HL
-      this.HL(this.addWord(this.hl(), this.hl()));
-      cycles = 11;
-      break;
-
-    case 0x2A: // LD   HL,(nn)
-      this.HL(this.getWord(this.nextWord()));
-      cycles = 16;
-      break;
-
-    case 0x2B: // DEC  HL
-      this.HL((this.hl() - 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x2C: // INC  L
-      this.l = this.incrementByte(this.l);
-      cycles = 5;
-      break;
-
-    case 0x2D: // DEC  L
-      this.l = this.decrementByte(this.l);
-      cycles = 5;
-      break;
-
-    case 0x2E: // LD   L,n
-      this.l = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x2F: // CPL
-      this.a ^= 0xFF;
-      cycles = 4;
-      break;
-
-    case 0x31: // LD   SP,nn
-      this.sp = this.nextWord();
-      cycles = 10;
-      break;
-
-    case 0x32: // LD   (nn),A
-      this.writeByte(this.nextWord(), this.a);
-      cycles = 13;
-      break;
-
-    case 0x33: // INC  SP
-      this.sp = ((this.sp + 1) & 0xFFFF);
-      cycles = 6;
-      break;
-
-    case 0x34: // INC  (HL)
-      addr = this.hl();
-      this.writeByte(addr, this.incrementByte(this.rd(addr)));
-      cycles = 10;
-      break;
-
-    case 0x35: // DEC  (HL)
-      addr = this.hl();
-      this.writeByte(addr, this.decrementByte(this.rd(addr)));
-      cycles = 10;
-      break;
-
-    case 0x36: // LD   (HL),n
-      this.writeByte(this.hl(), this.nextByte());
-      cycles = 10;
-      break;
-
-    case 0x37: // SCF
-      this.f |= Cpu.CARRY;
-      cycles = 4;
-      break;
-
-    case 0x39: // ADD  HL,SP
-      this.HL(this.addWord(this.hl(), this.sp));
-      cycles = 11;
-      break;
-
-    case 0x3A: // LD   A,(nn)
-      this.a = this.rd(this.nextWord());
-      cycles = 13;
-      break;
-
-    case 0x3B: // DEC  SP
-      this.sp = (this.sp - 1) & 0xFFFF;
-      cycles = 6;
-      break;
-
-    case 0x3C: // INC  A
-      this.a = this.incrementByte(this.a);
-      cycles = 5;
-      break;
-
-    case 0x3D: // DEC  A
-      this.a = this.decrementByte(this.a);
-      cycles = 5;
-      break;
-
-    case 0x3E: // LD   A,n
-      this.a = this.nextByte();
-      cycles = 7;
-      break;
-
-    case 0x3F: // CCF
-      this.f ^= Cpu.CARRY;
-      cycles = 4;
-      break;
-
-    case 0x40: // LD   B,B
-      this.b = this.b;
-      cycles = 5;
-      break;
-
-    case 0x41: //LD   B,C
-      this.b = this.c;
-      cycles = 5;
-      break;
-
-    case 0x42: // LD   B,D
-      this.b = this.d;
-      cycles = 5;
-      break;
-
-    case 0x43: // LD   B,E
-      this.b = this.e;
-      cycles = 5;
-      break;
-
-    case 0x44: // LD   B,H
-      this.b = this.h;
-      cycles = 5;
-      break;
-
-    case 0x45: // LD   B,L
-      this.b = this.l;
-      cycles = 5;
-      break;
-
-    case 0x46: // LD   B,(HL)
-      this.b = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x47: // LD   B,A
-      this.b = this.a;
-      cycles = 5;
-      break;
-
-    case 0x48: // LD   C,B
-      this.c = this.b;
-      cycles = 5;
-      break;
-
-    case 0x49: // LD   C,C
-      this.c = this.c;
-      cycles = 5;
-      break;
-
-    case 0x4A: // LD   C,D
-      this.c = this.d;
-      cycles = 5;
-      break;
-
-    case 0x4B: // LD   C,E
-      this.c = this.e;
-      cycles = 5;
-      break;
-
-    case 0x4C: // LD   C,H
-      this.c = this.h;
-      cycles = 5;
-      break;
-
-    case 0x4D: // LD   C,L
-      this.c = this.l;
-      cycles = 5;
-      break;
-
-    case 0x4E: // LD   C,(HL)
-      this.c = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x4F: // LD   C,A
-      this.c = this.a;
-      cycles = 5;
-      break;
-
-    case 0x50: // LD   D,B
-      this.d = this.b;
-      cycles = 5;
-      break;
-
-    case 0x51: // LD   D,C
-      this.d = this.c;
-      cycles = 5;
-      break;
-
-    case 0x52: // LD   D,D
-      this.d = this.d;
-      cycles = 5;
-      break;
-
-    case 0x53: // LD   D,E
-      this.d = this.e;
-      cycles = 5;
-      break;
-
-    case 0x54: // LD   D,H
-      this.d = this.h;
-      cycles = 5;
-      break;
-
-    case 0x55: // LD   D,L
-      this.d = this.l;
-      cycles = 5;
-      break;
-
-    case 0x56: // LD   D,(HL)
-      this.d = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x57: // LD   D,A
-      this.d = this.a;
-      cycles = 5;
-      break;
-
-    case 0x58: // LD   E,B
-      this.e = this.b;
-      cycles = 5;
-      break;
-
-    case 0x59: // LD   E,C
-      this.e = this.c;
-      cycles = 5;
-      break;
-
-    case 0x5A: // LD   E,D
-      this.e = this.d;
-      cycles = 5;
-      break;
-
-    case 0x5B: // LD   E,E
-      this.e = this.e;
-      cycles = 5;
-      break;
-
-    case 0x5C: // LD   E,H
-      this.e = this.h;
-      cycles = 5;
-      break;
-
-    case 0x5D: // LD   E,L
-      this.e = this.l;
-      cycles = 5;
-      break;
-
-    case 0x5E: // LD   E,(HL)
-      this.e = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x5F: // LD   E,A
-      this.e = this.a;
-      cycles = 5;
-      break;
-
-    case 0x60: // LD   H,B
-      this.h = this.b;
-      cycles = 5;
-      break;
-
-    case 0x61: // LD   H,C
-      this.h = this.c;
-      cycles = 5;
-      break;
-
-    case 0x62: // LD   H,D
-      this.h = this.d;
-      cycles = 5;
-      break;
-
-    case 0x63: // LD   H,E
-      this.h = this.e;
-      cycles = 5;
-      break;
-
-    case 0x64: // LD   H,H
-      this.h = this.h;
-      cycles = 5;
-      break;
-
-    case 0x65: // LD   H,L
-      this.h = this.l;
-      cycles = 5;
-      break;
-
-    case 0x66: // LD   H,(HL)
-      this.h = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x67: // LD   H,A
-      this.h = this.a;
-      cycles = 5;
-      break;
-
-    case 0x68: // LD   L,B
-      this.l = this.b;
-      cycles = 5;
-      break;
-
-    case 0x69: // LD   L,C
-      this.l = this.c;
-      cycles = 5;
-      break;
-
-    case 0x6A: // LD   L,D
-      this.l = this.d;
-      cycles = 5;
-      break;
-
-    case 0x6B: // LD   L,E
-      this.l = this.e;
-      cycles = 5;
-      break;
-
-    case 0x6C: // LD   L,H
-      this.l = this.h;
-      cycles = 5;
-      break;
-
-    case 0x6D: // LD   L,L
-      this.l = this.l;
-      cycles = 5;
-      break;
-
-    case 0x6E: // LD   L,(HL)
-      this.l = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x6F: // LD   L,A
-      this.l = this.a;
-      cycles = 5;
-      break;
-
-    case 0x70: // LD   (HL),B
-      this.writeByte(this.hl(), this.b);
-      cycles = 7;
-      break;
-
-    case 0x71: // LD   (HL),C
-      this.writeByte(this.hl(), this.c);
-      cycles = 7;
-      break;
-
-    case 0x72: // LD   (HL),D
-      this.writeByte(this.hl(), this.d);
-      cycles = 7;
-      break;
-
-    case 0x73: // LD   (HL),E
-      this.writeByte(this.hl(), this.e);
-      cycles = 7;
-      break;
-
-    case 0x74: // LD   (HL),H
-      this.writeByte(this.hl(), this.h);
-      cycles = 7;
-      break;
-
-    case 0x75: // LD   (HL),L
-      this.writeByte(this.hl(), this.l);
-      cycles = 7;
-      break;
-
-    case 0x76: // HALT
-      this.halted = true;
-      if (!this.intenable) {
-        alert("halted with intenble=0 at pc=0x" + this.pc.toString(16));
-      }
-      cycles = 7;
-      break;
-
-    case 0x77: // LD   (HL),A
-      this.writeByte(this.hl(), this.a);
-      cycles = 7;
-      break;
-
-    case 0x78: // LD   A,B
-      this.a = this.b;
-      cycles = 5;
-      break;
-
-    case 0x79: // LD   A,C
-      this.a = this.c;
-      cycles = 5;
-      break;
-
-    case 0x7A: // LD   A,D
-      this.a = this.d;
-      cycles = 5;
-      break;
-
-    case 0x7B: // LD   A,E
-      this.a = this.e;
-      cycles = 5;
-      break;
-
-    case 0x7C: // LD   A,H
-      this.a = this.h;
-      cycles = 5;
-      break;
-
-    case 0x7D: // LD   A,L
-      this.a = this.l;
-      cycles = 5;
-      break;
-
-    case 0x7E: // LD   A,(HL)
-      this.a = this.rd(this.hl());
-      cycles = 7;
-      break;
-
-    case 0x7F: // LD   A,A
-      this.a = this.a;
-      cycles = 5;
-      break;
-
-    case 0x80: // ADD  A,B
-      this.a = this.addByte(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0x81: // ADD  A,C
-      this.a = this.addByte(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0x82: // ADD  A,D
-      this.a = this.addByte(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0x83: // ADD  A,E
-      this.a = this.addByte(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0x84: // ADD  A,H
-      this.a = this.addByte(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0x85: // ADD  A,L
-      this.a = this.addByte(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0x86: // ADD  A,(HL)
-      this.a = this.addByte(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0x87: // ADD  A,A
-      this.a = this.addByte(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0x88: // ADC  A,B
-      this.a = this.addByteWithCarry(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0x89: // ADC  A,C
-      this.a = this.addByteWithCarry(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0x8A: // ADC  A,D
-      this.a = this.addByteWithCarry(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0x8B: // ADC  A,E
-      this.a = this.addByteWithCarry(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0x8C: // ADC  A,H
-      this.a = this.addByteWithCarry(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0x8D: // ADC  A,L
-      this.a = this.addByteWithCarry(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0x8E: // ADC  A,(HL)
-      this.a = this.addByteWithCarry(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0x8F: // ADC  A,A
-      this.a = this.addByteWithCarry(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0x90: // SUB  B
-      this.a = this.subtractByte(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0x91: // SUB  C
-      this.a = this.subtractByte(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0x92: // SUB  D
-      this.a = this.subtractByte(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0x93: // SUB  E
-      this.a = this.subtractByte(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0x94: // SUB  H
-      this.a = this.subtractByte(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0x95: // SUB  L
-      this.a = this.subtractByte(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0x96: // SUB  (HL)
-      this.a = this.subtractByte(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0x97: // SUB  A
-      this.a = this.subtractByte(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0x98: // SBC  A,B
-      this.a = this.subtractByteWithCarry(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0x99: // SBC  A,C
-      this.a = this.subtractByteWithCarry(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0x9A: // SBC  A,D
-      this.a = this.subtractByteWithCarry(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0x9B: // SBC  A,E
-      this.a = this.subtractByteWithCarry(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0x9C: // SBC  A,H
-      this.a = this.subtractByteWithCarry(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0x9D: // SBC  A,L
-      this.a = this.subtractByteWithCarry(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0x9E: //  SBC  A,(HL)
-      this.a = this.subtractByteWithCarry(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0x9F: // SBC  A,A
-      this.a = this.subtractByteWithCarry(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0xA0: // AND  B
-      this.a = this.andByte(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0xA1: // AND  C
-      this.a = this.andByte(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0xA2: // AND  D
-      this.a = this.andByte(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0xA3: // AND  E
-      this.a = this.andByte(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0xA4: // AND  H
-      this.a = this.andByte(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0xA5: // AND  L
-      this.a = this.andByte(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0xA6: // AND  (HL)
-      this.a = this.andByte(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0xA7: // AND  A
-      this.a = this.andByte(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0xA8: // XOR  B
-      this.a = this.xorByte(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0xA9: // XOR  C
-      this.a = this.xorByte(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0xAA: // XOR  D
-      this.a = this.xorByte(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0xAB: // XOR  E
-      this.a = this.xorByte(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0xAC: // XOR  H
-      this.a = this.xorByte(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0xAD: // XOR  L
-      this.a = this.xorByte(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0xAE: // XOR  (HL)
-      this.a = this.xorByte(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0xAF: // XOR  A
-      this.a = this.xorByte(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0xB0: // OR  B
-      this.a = this.orByte(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0xB1: // OR  C
-      this.a = this.orByte(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0xB2: // OR  D
-      this.a = this.orByte(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0xB3: // OR  E
-      this.a = this.orByte(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0xB4: // OR  H
-      this.a = this.orByte(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0xB5: // OR  L
-      this.a = this.orByte(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0xB6: //  OR   (HL)
-      this.a = this.orByte(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0xB7: // OR  A
-      this.a = this.orByte(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0xB8: //  CP   B
-      this.subtractByte(this.a, this.b);
-      cycles = 4;
-      break;
-
-    case 0xB9: //  CP   C
-      this.subtractByte(this.a, this.c);
-      cycles = 4;
-      break;
-
-    case 0xBA: //  CP   D
-      this.subtractByte(this.a, this.d);
-      cycles = 4;
-      break;
-
-    case 0xBB: //  CP   E
-      this.subtractByte(this.a, this.e);
-      cycles = 4;
-      break;
-
-    case 0xBC: //  CP   H
-      this.subtractByte(this.a, this.h);
-      cycles = 4;
-      break;
-
-    case 0xBD: //  CP   L
-      this.subtractByte(this.a, this.l);
-      cycles = 4;
-      break;
-
-    case 0xBE: // CP   (HL)
-      this.subtractByte(this.a, this.rd(this.hl()));
-      cycles = 7;
-      break;
-
-    case 0xBF: //  CP   A
-      this.subtractByte(this.a, this.a);
-      cycles = 4;
-      break;
-
-    case 0xC0: //  RET  NZ      ; opcode C0 cycles 05
-      if (this.f & Cpu.ZERO) {
-        cycles = 5;
-      } else {
-        this.pc = this.pop();
-        cycles = 11;
-      }
-      break;
-
-    case 0xC1: //  POP  BC
-      this.BC(this.pop());
-      cycles = 10;
-      break;
-
-    case 0xC2: // JP   NZ,nn
-      if (this.f & Cpu.ZERO) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      } else {
-        this.pc = this.nextWord();
-      }
-      cycles = 10;
-      break;
-
-    case 0xC3: //  JP   nn
-      this.pc = this.getWord(this.pc);
-      cycles = 10;
-      break;
-
-    case 0xC4: //  CALL NZ,nn
-      if (this.f & Cpu.ZERO) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      } else {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      }
-      break;
-
-    case 0xC5: //  PUSH BC
-      this.push(this.bc());
-      cycles = 11;
-      break;
-
-    case 0xC6: //  ADD  A,n
-      this.a = this.addByte(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xC7: // RST  0
-      this.push(this.pc);
-      this.pc = 0;
-      cycles = 11;
-      break;
-
-    case 0xC8: // RET Z
-      if (this.f & Cpu.ZERO) {
-        this.pc = this.pop();
-        cycles = 11;
-      } else {
-        cycles = 5;
-      }
-      break;
-
-    case 0xC9: // RET  nn
-      this.pc = this.pop();
-      cycles = 10;
-      break;
-
-    case 0xCA: // JP   Z,nn
-      if (this.f & Cpu.ZERO) {
-        this.pc = this.nextWord();
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      }
-      cycles = 10;
-      break;
-
-    case 0xCC: //  CALL Z,nn
-      if (this.f & Cpu.ZERO) {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      }
-      break;
-
-    case 0xCD: // CALL nn
-      w = this.nextWord();
-      this.push(this.pc);
-      this.pc = w;
-      cycles = 17;
-      break;
-
-    case 0xCE: // ADC  A,n
-      this.a = this.addByteWithCarry(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xCF: // RST  8
-      this.push(this.pc);
-      this.pc = 0x08;
-      cycles = 11;
-      break;
-
-    case 0xD0: // RET NC
-      if (this.f & Cpu.CARRY) {
-        cycles = 5;
-      } else {
-        this.pc = this.pop();
-        cycles = 11;
-      }
-      break;
-
-    case 0xD1: // POP DE
-      this.DE(this.pop());
-      cycles = 10;
-      break;
-
-    case 0xD2: // JP   NC,nn
-      if (this.f & Cpu.CARRY) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      } else {
-        this.pc = this.nextWord();
-      }
-      cycles = 10;
-      break;
-
-    case 0xD3: // OUT  (n),A
-      this.writePort(this.nextByte(), this.a);
-      cycles = 10;
-      break;
-
-    case 0xD4: //  CALL NC,nn
-      if (this.f & Cpu.CARRY) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      } else {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      }
-      break;
-
-    case 0xD5: //  PUSH DE
-      this.push(this.de());
-      cycles = 11;
-      break;
-
-    case 0xD6: // SUB  n
-      this.a = this.subtractByte(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xD7: // RST  10H
-      this.push(this.pc);
-      this.pc = 0x10;
-      cycles = 11;
-      break;
-
-    case 0xD8: // RET C
-      if (this.f & Cpu.CARRY) {
-        this.pc = this.pop();
-        cycles = 11;
-      } else {
-        cycles = 5;
-      }
-      break;
-
-    case 0xDA: // JP   C,nn
-      if (this.f & Cpu.CARRY) {
-        this.pc = this.nextWord();
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      }
-      cycles = 10;
-      break;
-
-    case 0xDB: // IN   A,(n)
-      this.a = this.readPort(this.nextByte());
-      cycles = 10;
-      break;
-
-    case 0xDC: //  CALL C,nn
-      if (this.f & Cpu.CARRY) {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      }
-      break;
-
-    case 0xDE: // SBC  A,n
-      this.a = this.subtractByteWithCarry(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xDF: // RST  18H
-      this.push(this.pc);
-      this.pc = 0x18;
-      cycles = 11;
-      break;
-
-    case 0xE0: // RET PO
-      if (this.f & Cpu.PARITY) {
-        cycles = 5;
-      } else {
-        this.pc = this.pop();
-        cycles = 11;
-      }
-      break;
-
-    case 0xE1: // POP HL
-      this.HL(this.pop());
-      cycles = 10;
-      break;
-
-    case 0xE2: // JP   PO,nn
-      if (this.f & Cpu.PARITY) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      } else {
-        this.pc = this.nextWord();
-      }
-      cycles = 10;
-      break;
-
-    case 0xE3: // EX   (SP),HL ;
-      a = this.getWord(this.sp);
-      this.writeWord(this.sp, this.hl());
-      this.HL(a);
-      cycles = 4;
-      break;
-
-    case 0xE4: //  CALL PO,nn
-      if (this.f & Cpu.PARITY) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      } else {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      }
-      break;
-
-    case 0xE5: //  PUSH HL
-      this.push(this.hl());
-      cycles = 11;
-      break;
-
-    case 0xE6: // AND  n
-      this.a = this.andByte(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xE7: // RST  20H
-      this.push(this.pc);
-      this.pc = 0x20;
-      cycles = 11;
-      break;
-
-    case 0xE8: // RET PE
-      if (this.f & Cpu.PARITY) {
-        this.pc = this.pop();
-        cycles = 11;
-      } else {
-        cycles = 5;
-      }
-      break;
-
-    case 0xE9: // JP   (HL)
-      this.pc = this.hl();
-      cycles = 4;
-      break;
-
-    case 0xEA: // JP   PE,nn
-      if (this.f & Cpu.PARITY) {
-        this.pc = this.nextWord();
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      }
-      cycles = 10;
-      break;
-
-    case 0xEB: // EX   DE,HL
-      a = this.de();
-      this.DE(this.hl());
-      this.HL(a);
-      cycles = 4;
-      break;
-
-    case 0xEC: //  CALL PE,nn
-      if (this.f & Cpu.PARITY) {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      }
-      break;
-
-    case 0xEE: // XOR  n
-      this.a = this.xorByte(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xEF: // RST  28H
-      this.push(this.pc);
-      this.pc = 0x28;
-      cycles = 11;
-      break;
-
-    case 0xF0: // RET P
-      if (this.f & Cpu.SIGN) {
-        cycles = 5;
-      } else {
-        this.pc = this.pop();
-        cycles = 11;
-      }
-      break;
-
-    case 0xF1: // POP AF
-      this.AF(this.pop());
-      cycles = 10;
-      break;
-
-    case 0xF2: // JP   P,nn
-      if (this.f & Cpu.SIGN) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      } else {
-        this.pc = this.nextWord();
-      }
-      cycles = 10;
-      break;
-
-    case 0xF3: // DI
-      this.intenable = false;
-      cycles = 4;
-      break;
-
-    case 0xF4: //  CALL P,nn
-      if (this.f & Cpu.SIGN) {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      } else {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      }
-      break;
-
-    case 0xF5: //  PUSH AF
-      this.push(this.af());
-      cycles = 11;
-      break;
-
-    case 0xF6: // OR   n
-      this.a = this.orByte(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xF7: // RST  30H
-      this.push(this.pc);
-      this.pc = 0x30;
-      cycles = 11;
-      break;
-
-    case 0xF8: // RET M
-      if (this.f & Cpu.SIGN) {
-        this.pc = this.pop();
-        cycles = 11;
-      } else {
-        cycles = 5;
-      }
-      break;
-
-    case 0xF9: // LD   SP,HL
-      this.sp = this.hl();
-      cycles = 6;
-      break;
-
-    case 0xFA: // JP   M,nn
-      if (this.f & Cpu.SIGN) {
-        this.pc = this.nextWord();
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-      }
-      cycles = 10;
-      break;
-
-    case 0xFB: // EI
-      this.intenable = true;
-      cycles = 4;
-      break;
-
-    case 0xFC: //  CALL M,nn
-      if (this.f & Cpu.SIGN) {
-        w = this.nextWord();
-        this.push(this.pc);
-        this.pc = w;
-        cycles = 17;
-      } else {
-        this.pc = (this.pc + 2) & 0xFFFF;
-        cycles = 11;
-      }
-      break;
-
-    case 0xFE: // CP   n
-      this.subtractByte(this.a, this.nextByte());
-      cycles = 7;
-      break;
-
-    case 0xFF: // RST  38H
-      this.push(this.pc);
-      this.pc = 0x38;
-      cycles = 11;
-      break;
-
-    default: // illegal
-      if (i === undefined) {
-        alert("halted at pc=0x" + this.pc.toString(16) + ' with op=undefined');
-      } else {
-        alert("halted at pc=0x" + this.pc.toString(16) + ' with op=0x' + i.toString(16));
-      }
-      this.halted = true;
-      cycles = 4;
-      break;
-  }
+  // break 256-way swtich into two 128-way switches, because
+  // chrome V8 doesn't optimize switches larger than 128 ways
+  if (i < 0x80) switch (i) {
+
+      case 0x00: // NOP
+	cycles = 4;
+	break;
+
+      case 0x01: // LD BC,nn
+	this.BC(this.nextWord());
+	cycles = 10;
+	break;
+
+      case 0x02: // LD (BC),A
+	this.writeByte(this.bc(), this.a);
+	cycles = 7;
+	break;
+
+      case 0x03: // INC BC
+	this.BC((this.bc() + 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x04: // INC  B
+	this.b = this.incrementByte(this.b);
+	cycles = 5;
+	break;
+
+      case 0x05: // DEC  B
+	this.b = this.decrementByte(this.b);
+	cycles = 5;
+	break;
+
+      case 0x06: // LD   B,n
+	this.b = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x07: // RLCA
+	b7 = (this.a & 0x80) >> 7;
+	if (b7) {
+	  this.f |= Cpu.CARRY;
+	} else {
+	  this.f &= ~Cpu.CARRY & 0xFF;
+	}
+	this.a = ((this.a << 1) & 0xFE) | b7;
+	cycles = 4;
+	break;
+
+      case 0x09: // ADD  HL,BC
+	this.HL(this.addWord(this.hl(), this.bc()));
+	cycles = 11;
+	break;
+
+      case 0x0A: // LD   A,(BC)
+	this.a = this.rd(this.bc());
+	cycles = 7;
+	break;
+
+      case 0x0B: // DEC  BC
+	this.BC((this.bc() - 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x0C: // INC  C
+	this.c = this.incrementByte(this.c);
+	cycles = 5;
+	break;
+
+      case 0x0D: // DEC  C
+	this.c = this.decrementByte(this.c);
+	cycles = 5;
+	break;
+
+      case 0x0E: // LD   C,n
+	this.c = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x0F: // RRCA
+	h = (this.a & 1) << 7;
+	if (h) {
+	  this.f |= Cpu.CARRY;
+	} else {
+	  this.f &= ~Cpu.CARRY & 0xFF;
+	}
+	this.a = ((this.a >> 1) & 0x7F) | h;
+	cycles = 4;
+	break;
+
+      case 0x11: // LD   DE,nn
+	this.DE(this.nextWord());
+	cycles = 10;
+	break;
+
+      case 0x12: // LD   (DE),A
+	this.writeByte(this.de(), this.a);
+	cycles = 7;
+	break;
+
+      case 0x13: // INC  DE
+	this.DE((this.de() + 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x14: // INC  D
+	this.d = this.incrementByte(this.d);
+	cycles = 5;
+	break;
+
+      case 0x15: // DEC  D
+	this.d = this.decrementByte(this.d);
+	cycles = 5;
+	break;
+
+      case 0x16: // LD   D,n
+	this.d = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x17: // RLA
+	c = (this.f & Cpu.CARRY) ? 1 : 0;
+	if (this.a & 0x80) {
+	  this.f |= Cpu.CARRY;
+	} else {
+	  this.f &= ~Cpu.CARRY & 0xFF;
+	}
+	this.a = ((this.a << 1) & 0xFE) | c;
+	cycles = 4;
+	break;
+
+      case 0x19: // ADD  HL,DE
+	this.HL(this.addWord(this.hl(), this.de()));
+	cycles = 11;
+	break;
+
+      case 0x1A: // LD   A,(DE)
+	this.a = this.rd(this.de());
+	cycles = 7;
+	break;
+
+      case 0x1B: // DEC  DE
+	this.DE((this.de() - 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x1C: // INC  E
+	this.e = this.incrementByte(this.e);
+	cycles = 5;
+	break;
+
+      case 0x1D: // DEC  E
+	this.e = this.decrementByte(this.e);
+	cycles = 5;
+	break;
+
+      case 0x1E: // LD   E,n
+	this.e = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x1F: // RRA
+	c = (this.f & Cpu.CARRY) ? 0x80 : 0;
+	if (this.a & 1) {
+	  this.f |= Cpu.CARRY;
+	} else {
+	  this.f &= ~Cpu.CARRY & 0xFF;
+	}
+	this.a = ((this.a >> 1) & 0x7F) | c;
+	cycles = 4;
+	break;
+
+      case 0x21: // LD   HL,nn
+	this.HL(this.nextWord());
+	cycles = 10;
+	break;
+
+      case 0x22: // LD   (nn),HL
+	this.writeWord(this.nextWord(), this.hl());
+	cycles = 16;
+	break;
+
+      case 0x23: // INC  HL
+	this.HL((this.hl() + 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x24: // INC  H
+	this.h = this.incrementByte(this.h);
+	cycles = 5;
+	break;
+
+      case 0x25: // DEC  H
+	this.h = this.decrementByte(this.h);
+	cycles = 5;
+	break;
+
+      case 0x26: // LD   H,n
+	this.h = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x27: // DAA
+	this.a = this.daa();
+	cycles = 4;
+	break;
+
+      case 0x29: // ADD  HL,HL
+	this.HL(this.addWord(this.hl(), this.hl()));
+	cycles = 11;
+	break;
+
+      case 0x2A: // LD   HL,(nn)
+	this.HL(this.getWord(this.nextWord()));
+	cycles = 16;
+	break;
+
+      case 0x2B: // DEC  HL
+	this.HL((this.hl() - 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x2C: // INC  L
+	this.l = this.incrementByte(this.l);
+	cycles = 5;
+	break;
+
+      case 0x2D: // DEC  L
+	this.l = this.decrementByte(this.l);
+	cycles = 5;
+	break;
+
+      case 0x2E: // LD   L,n
+	this.l = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x2F: // CPL
+	this.a ^= 0xFF;
+	cycles = 4;
+	break;
+
+      case 0x31: // LD   SP,nn
+	this.sp = this.nextWord();
+	cycles = 10;
+	break;
+
+      case 0x32: // LD   (nn),A
+	this.writeByte(this.nextWord(), this.a);
+	cycles = 13;
+	break;
+
+      case 0x33: // INC  SP
+	this.sp = ((this.sp + 1) & 0xFFFF);
+	cycles = 6;
+	break;
+
+      case 0x34: // INC  (HL)
+	addr = this.hl();
+	this.writeByte(addr, this.incrementByte(this.rd(addr)));
+	cycles = 10;
+	break;
+
+      case 0x35: // DEC  (HL)
+	addr = this.hl();
+	this.writeByte(addr, this.decrementByte(this.rd(addr)));
+	cycles = 10;
+	break;
+
+      case 0x36: // LD   (HL),n
+	this.writeByte(this.hl(), this.nextByte());
+	cycles = 10;
+	break;
+
+      case 0x37: // SCF
+	this.f |= Cpu.CARRY;
+	cycles = 4;
+	break;
+
+      case 0x39: // ADD  HL,SP
+	this.HL(this.addWord(this.hl(), this.sp));
+	cycles = 11;
+	break;
+
+      case 0x3A: // LD   A,(nn)
+	this.a = this.rd(this.nextWord());
+	cycles = 13;
+	break;
+
+      case 0x3B: // DEC  SP
+	this.sp = (this.sp - 1) & 0xFFFF;
+	cycles = 6;
+	break;
+
+      case 0x3C: // INC  A
+	this.a = this.incrementByte(this.a);
+	cycles = 5;
+	break;
+
+      case 0x3D: // DEC  A
+	this.a = this.decrementByte(this.a);
+	cycles = 5;
+	break;
+
+      case 0x3E: // LD   A,n
+	this.a = this.nextByte();
+	cycles = 7;
+	break;
+
+      case 0x3F: // CCF
+	this.f ^= Cpu.CARRY;
+	cycles = 4;
+	break;
+
+      case 0x40: // LD   B,B
+	this.b = this.b;
+	cycles = 5;
+	break;
+
+      case 0x41: //LD   B,C
+	this.b = this.c;
+	cycles = 5;
+	break;
+
+      case 0x42: // LD   B,D
+	this.b = this.d;
+	cycles = 5;
+	break;
+
+      case 0x43: // LD   B,E
+	this.b = this.e;
+	cycles = 5;
+	break;
+
+      case 0x44: // LD   B,H
+	this.b = this.h;
+	cycles = 5;
+	break;
+
+      case 0x45: // LD   B,L
+	this.b = this.l;
+	cycles = 5;
+	break;
+
+      case 0x46: // LD   B,(HL)
+	this.b = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x47: // LD   B,A
+	this.b = this.a;
+	cycles = 5;
+	break;
+
+      case 0x48: // LD   C,B
+	this.c = this.b;
+	cycles = 5;
+	break;
+
+      case 0x49: // LD   C,C
+	this.c = this.c;
+	cycles = 5;
+	break;
+
+      case 0x4A: // LD   C,D
+	this.c = this.d;
+	cycles = 5;
+	break;
+
+      case 0x4B: // LD   C,E
+	this.c = this.e;
+	cycles = 5;
+	break;
+
+      case 0x4C: // LD   C,H
+	this.c = this.h;
+	cycles = 5;
+	break;
+
+      case 0x4D: // LD   C,L
+	this.c = this.l;
+	cycles = 5;
+	break;
+
+      case 0x4E: // LD   C,(HL)
+	this.c = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x4F: // LD   C,A
+	this.c = this.a;
+	cycles = 5;
+	break;
+
+      case 0x50: // LD   D,B
+	this.d = this.b;
+	cycles = 5;
+	break;
+
+      case 0x51: // LD   D,C
+	this.d = this.c;
+	cycles = 5;
+	break;
+
+      case 0x52: // LD   D,D
+	this.d = this.d;
+	cycles = 5;
+	break;
+
+      case 0x53: // LD   D,E
+	this.d = this.e;
+	cycles = 5;
+	break;
+
+      case 0x54: // LD   D,H
+	this.d = this.h;
+	cycles = 5;
+	break;
+
+      case 0x55: // LD   D,L
+	this.d = this.l;
+	cycles = 5;
+	break;
+
+      case 0x56: // LD   D,(HL)
+	this.d = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x57: // LD   D,A
+	this.d = this.a;
+	cycles = 5;
+	break;
+
+      case 0x58: // LD   E,B
+	this.e = this.b;
+	cycles = 5;
+	break;
+
+      case 0x59: // LD   E,C
+	this.e = this.c;
+	cycles = 5;
+	break;
+
+      case 0x5A: // LD   E,D
+	this.e = this.d;
+	cycles = 5;
+	break;
+
+      case 0x5B: // LD   E,E
+	this.e = this.e;
+	cycles = 5;
+	break;
+
+      case 0x5C: // LD   E,H
+	this.e = this.h;
+	cycles = 5;
+	break;
+
+      case 0x5D: // LD   E,L
+	this.e = this.l;
+	cycles = 5;
+	break;
+
+      case 0x5E: // LD   E,(HL)
+	this.e = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x5F: // LD   E,A
+	this.e = this.a;
+	cycles = 5;
+	break;
+
+      case 0x60: // LD   H,B
+	this.h = this.b;
+	cycles = 5;
+	break;
+
+      case 0x61: // LD   H,C
+	this.h = this.c;
+	cycles = 5;
+	break;
+
+      case 0x62: // LD   H,D
+	this.h = this.d;
+	cycles = 5;
+	break;
+
+      case 0x63: // LD   H,E
+	this.h = this.e;
+	cycles = 5;
+	break;
+
+      case 0x64: // LD   H,H
+	this.h = this.h;
+	cycles = 5;
+	break;
+
+      case 0x65: // LD   H,L
+	this.h = this.l;
+	cycles = 5;
+	break;
+
+      case 0x66: // LD   H,(HL)
+	this.h = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x67: // LD   H,A
+	this.h = this.a;
+	cycles = 5;
+	break;
+
+      case 0x68: // LD   L,B
+	this.l = this.b;
+	cycles = 5;
+	break;
+
+      case 0x69: // LD   L,C
+	this.l = this.c;
+	cycles = 5;
+	break;
+
+      case 0x6A: // LD   L,D
+	this.l = this.d;
+	cycles = 5;
+	break;
+
+      case 0x6B: // LD   L,E
+	this.l = this.e;
+	cycles = 5;
+	break;
+
+      case 0x6C: // LD   L,H
+	this.l = this.h;
+	cycles = 5;
+	break;
+
+      case 0x6D: // LD   L,L
+	this.l = this.l;
+	cycles = 5;
+	break;
+
+      case 0x6E: // LD   L,(HL)
+	this.l = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x6F: // LD   L,A
+	this.l = this.a;
+	cycles = 5;
+	break;
+
+      case 0x70: // LD   (HL),B
+	this.writeByte(this.hl(), this.b);
+	cycles = 7;
+	break;
+
+      case 0x71: // LD   (HL),C
+	this.writeByte(this.hl(), this.c);
+	cycles = 7;
+	break;
+
+      case 0x72: // LD   (HL),D
+	this.writeByte(this.hl(), this.d);
+	cycles = 7;
+	break;
+
+      case 0x73: // LD   (HL),E
+	this.writeByte(this.hl(), this.e);
+	cycles = 7;
+	break;
+
+      case 0x74: // LD   (HL),H
+	this.writeByte(this.hl(), this.h);
+	cycles = 7;
+	break;
+
+      case 0x75: // LD   (HL),L
+	this.writeByte(this.hl(), this.l);
+	cycles = 7;
+	break;
+
+      case 0x76: // HALT
+	this.halted = true;
+	if (!this.intenable) {
+	  alert("halted with intenble=0 at pc=0x" + this.pc.toString(16));
+	}
+	cycles = 7;
+	break;
+
+      case 0x77: // LD   (HL),A
+	this.writeByte(this.hl(), this.a);
+	cycles = 7;
+	break;
+
+      case 0x78: // LD   A,B
+	this.a = this.b;
+	cycles = 5;
+	break;
+
+      case 0x79: // LD   A,C
+	this.a = this.c;
+	cycles = 5;
+	break;
+
+      case 0x7A: // LD   A,D
+	this.a = this.d;
+	cycles = 5;
+	break;
+
+      case 0x7B: // LD   A,E
+	this.a = this.e;
+	cycles = 5;
+	break;
+
+      case 0x7C: // LD   A,H
+	this.a = this.h;
+	cycles = 5;
+	break;
+
+      case 0x7D: // LD   A,L
+	this.a = this.l;
+	cycles = 5;
+	break;
+
+      case 0x7E: // LD   A,(HL)
+	this.a = this.rd(this.hl());
+	cycles = 7;
+	break;
+
+      case 0x7F: // LD   A,A
+	this.a = this.a;
+	cycles = 5;
+	break;
+
+      default: // illegal
+	if (i === undefined) {
+	  alert("halted at pc=0x" + this.pc.toString(16) + ' with op=undefined');
+	} else {
+	  alert("halted at pc=0x" + this.pc.toString(16) + ' with op=0x' + i.toString(16));
+	}
+	this.halted = true;
+	cycles = 4;
+	break;
+
+  } else switch (i) {
+
+      case 0x80: // ADD  A,B
+	this.a = this.addByte(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0x81: // ADD  A,C
+	this.a = this.addByte(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0x82: // ADD  A,D
+	this.a = this.addByte(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0x83: // ADD  A,E
+	this.a = this.addByte(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0x84: // ADD  A,H
+	this.a = this.addByte(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0x85: // ADD  A,L
+	this.a = this.addByte(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0x86: // ADD  A,(HL)
+	this.a = this.addByte(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0x87: // ADD  A,A
+	this.a = this.addByte(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0x88: // ADC  A,B
+	this.a = this.addByteWithCarry(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0x89: // ADC  A,C
+	this.a = this.addByteWithCarry(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0x8A: // ADC  A,D
+	this.a = this.addByteWithCarry(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0x8B: // ADC  A,E
+	this.a = this.addByteWithCarry(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0x8C: // ADC  A,H
+	this.a = this.addByteWithCarry(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0x8D: // ADC  A,L
+	this.a = this.addByteWithCarry(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0x8E: // ADC  A,(HL)
+	this.a = this.addByteWithCarry(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0x8F: // ADC  A,A
+	this.a = this.addByteWithCarry(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0x90: // SUB  B
+	this.a = this.subtractByte(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0x91: // SUB  C
+	this.a = this.subtractByte(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0x92: // SUB  D
+	this.a = this.subtractByte(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0x93: // SUB  E
+	this.a = this.subtractByte(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0x94: // SUB  H
+	this.a = this.subtractByte(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0x95: // SUB  L
+	this.a = this.subtractByte(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0x96: // SUB  (HL)
+	this.a = this.subtractByte(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0x97: // SUB  A
+	this.a = this.subtractByte(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0x98: // SBC  A,B
+	this.a = this.subtractByteWithCarry(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0x99: // SBC  A,C
+	this.a = this.subtractByteWithCarry(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0x9A: // SBC  A,D
+	this.a = this.subtractByteWithCarry(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0x9B: // SBC  A,E
+	this.a = this.subtractByteWithCarry(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0x9C: // SBC  A,H
+	this.a = this.subtractByteWithCarry(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0x9D: // SBC  A,L
+	this.a = this.subtractByteWithCarry(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0x9E: //  SBC  A,(HL)
+	this.a = this.subtractByteWithCarry(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0x9F: // SBC  A,A
+	this.a = this.subtractByteWithCarry(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0xA0: // AND  B
+	this.a = this.andByte(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0xA1: // AND  C
+	this.a = this.andByte(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0xA2: // AND  D
+	this.a = this.andByte(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0xA3: // AND  E
+	this.a = this.andByte(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0xA4: // AND  H
+	this.a = this.andByte(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0xA5: // AND  L
+	this.a = this.andByte(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0xA6: // AND  (HL)
+	this.a = this.andByte(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0xA7: // AND  A
+	this.a = this.andByte(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0xA8: // XOR  B
+	this.a = this.xorByte(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0xA9: // XOR  C
+	this.a = this.xorByte(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0xAA: // XOR  D
+	this.a = this.xorByte(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0xAB: // XOR  E
+	this.a = this.xorByte(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0xAC: // XOR  H
+	this.a = this.xorByte(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0xAD: // XOR  L
+	this.a = this.xorByte(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0xAE: // XOR  (HL)
+	this.a = this.xorByte(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0xAF: // XOR  A
+	this.a = this.xorByte(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0xB0: // OR  B
+	this.a = this.orByte(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0xB1: // OR  C
+	this.a = this.orByte(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0xB2: // OR  D
+	this.a = this.orByte(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0xB3: // OR  E
+	this.a = this.orByte(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0xB4: // OR  H
+	this.a = this.orByte(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0xB5: // OR  L
+	this.a = this.orByte(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0xB6: //  OR   (HL)
+	this.a = this.orByte(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0xB7: // OR  A
+	this.a = this.orByte(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0xB8: //  CP   B
+	this.subtractByte(this.a, this.b);
+	cycles = 4;
+	break;
+
+      case 0xB9: //  CP   C
+	this.subtractByte(this.a, this.c);
+	cycles = 4;
+	break;
+
+      case 0xBA: //  CP   D
+	this.subtractByte(this.a, this.d);
+	cycles = 4;
+	break;
+
+      case 0xBB: //  CP   E
+	this.subtractByte(this.a, this.e);
+	cycles = 4;
+	break;
+
+      case 0xBC: //  CP   H
+	this.subtractByte(this.a, this.h);
+	cycles = 4;
+	break;
+
+      case 0xBD: //  CP   L
+	this.subtractByte(this.a, this.l);
+	cycles = 4;
+	break;
+
+      case 0xBE: // CP   (HL)
+	this.subtractByte(this.a, this.rd(this.hl()));
+	cycles = 7;
+	break;
+
+      case 0xBF: //  CP   A
+	this.subtractByte(this.a, this.a);
+	cycles = 4;
+	break;
+
+      case 0xC0: //  RET  NZ      ; opcode C0 cycles 05
+	if (this.f & Cpu.ZERO) {
+	  cycles = 5;
+	} else {
+	  this.pc = this.pop();
+	  cycles = 11;
+	}
+	break;
+
+      case 0xC1: //  POP  BC
+	this.BC(this.pop());
+	cycles = 10;
+	break;
+
+      case 0xC2: // JP   NZ,nn
+	if (this.f & Cpu.ZERO) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	} else {
+	  this.pc = this.nextWord();
+	}
+	cycles = 10;
+	break;
+
+      case 0xC3: //  JP   nn
+	this.pc = this.getWord(this.pc);
+	cycles = 10;
+	break;
+
+      case 0xC4: //  CALL NZ,nn
+	if (this.f & Cpu.ZERO) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	} else {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	}
+	break;
+
+      case 0xC5: //  PUSH BC
+	this.push(this.bc());
+	cycles = 11;
+	break;
+
+      case 0xC6: //  ADD  A,n
+	this.a = this.addByte(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xC7: // RST  0
+	this.push(this.pc);
+	this.pc = 0;
+	cycles = 11;
+	break;
+
+      case 0xC8: // RET Z
+	if (this.f & Cpu.ZERO) {
+	  this.pc = this.pop();
+	  cycles = 11;
+	} else {
+	  cycles = 5;
+	}
+	break;
+
+      case 0xC9: // RET  nn
+	this.pc = this.pop();
+	cycles = 10;
+	break;
+
+      case 0xCA: // JP   Z,nn
+	if (this.f & Cpu.ZERO) {
+	  this.pc = this.nextWord();
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	}
+	cycles = 10;
+	break;
+
+      case 0xCC: //  CALL Z,nn
+	if (this.f & Cpu.ZERO) {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	}
+	break;
+
+      case 0xCD: // CALL nn
+	w = this.nextWord();
+	this.push(this.pc);
+	this.pc = w;
+	cycles = 17;
+	break;
+
+      case 0xCE: // ADC  A,n
+	this.a = this.addByteWithCarry(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xCF: // RST  8
+	this.push(this.pc);
+	this.pc = 0x08;
+	cycles = 11;
+	break;
+
+      case 0xD0: // RET NC
+	if (this.f & Cpu.CARRY) {
+	  cycles = 5;
+	} else {
+	  this.pc = this.pop();
+	  cycles = 11;
+	}
+	break;
+
+      case 0xD1: // POP DE
+	this.DE(this.pop());
+	cycles = 10;
+	break;
+
+      case 0xD2: // JP   NC,nn
+	if (this.f & Cpu.CARRY) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	} else {
+	  this.pc = this.nextWord();
+	}
+	cycles = 10;
+	break;
+
+      case 0xD3: // OUT  (n),A
+	this.writePort(this.nextByte(), this.a);
+	cycles = 10;
+	break;
+
+      case 0xD4: //  CALL NC,nn
+	if (this.f & Cpu.CARRY) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	} else {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	}
+	break;
+
+      case 0xD5: //  PUSH DE
+	this.push(this.de());
+	cycles = 11;
+	break;
+
+      case 0xD6: // SUB  n
+	this.a = this.subtractByte(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xD7: // RST  10H
+	this.push(this.pc);
+	this.pc = 0x10;
+	cycles = 11;
+	break;
+
+      case 0xD8: // RET C
+	if (this.f & Cpu.CARRY) {
+	  this.pc = this.pop();
+	  cycles = 11;
+	} else {
+	  cycles = 5;
+	}
+	break;
+
+      case 0xDA: // JP   C,nn
+	if (this.f & Cpu.CARRY) {
+	  this.pc = this.nextWord();
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	}
+	cycles = 10;
+	break;
+
+      case 0xDB: // IN   A,(n)
+	this.a = this.readPort(this.nextByte());
+	cycles = 10;
+	break;
+
+      case 0xDC: //  CALL C,nn
+	if (this.f & Cpu.CARRY) {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	}
+	break;
+
+      case 0xDE: // SBC  A,n
+	this.a = this.subtractByteWithCarry(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xDF: // RST  18H
+	this.push(this.pc);
+	this.pc = 0x18;
+	cycles = 11;
+	break;
+
+      case 0xE0: // RET PO
+	if (this.f & Cpu.PARITY) {
+	  cycles = 5;
+	} else {
+	  this.pc = this.pop();
+	  cycles = 11;
+	}
+	break;
+
+      case 0xE1: // POP HL
+	this.HL(this.pop());
+	cycles = 10;
+	break;
+
+      case 0xE2: // JP   PO,nn
+	if (this.f & Cpu.PARITY) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	} else {
+	  this.pc = this.nextWord();
+	}
+	cycles = 10;
+	break;
+
+      case 0xE3: // EX   (SP),HL ;
+	a = this.getWord(this.sp);
+	this.writeWord(this.sp, this.hl());
+	this.HL(a);
+	cycles = 4;
+	break;
+
+      case 0xE4: //  CALL PO,nn
+	if (this.f & Cpu.PARITY) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	} else {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	}
+	break;
+
+      case 0xE5: //  PUSH HL
+	this.push(this.hl());
+	cycles = 11;
+	break;
+
+      case 0xE6: // AND  n
+	this.a = this.andByte(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xE7: // RST  20H
+	this.push(this.pc);
+	this.pc = 0x20;
+	cycles = 11;
+	break;
+
+      case 0xE8: // RET PE
+	if (this.f & Cpu.PARITY) {
+	  this.pc = this.pop();
+	  cycles = 11;
+	} else {
+	  cycles = 5;
+	}
+	break;
+
+      case 0xE9: // JP   (HL)
+	this.pc = this.hl();
+	cycles = 4;
+	break;
+
+      case 0xEA: // JP   PE,nn
+	if (this.f & Cpu.PARITY) {
+	  this.pc = this.nextWord();
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	}
+	cycles = 10;
+	break;
+
+      case 0xEB: // EX   DE,HL
+	a = this.de();
+	this.DE(this.hl());
+	this.HL(a);
+	cycles = 4;
+	break;
+
+      case 0xEC: //  CALL PE,nn
+	if (this.f & Cpu.PARITY) {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	}
+	break;
+
+      case 0xEE: // XOR  n
+	this.a = this.xorByte(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xEF: // RST  28H
+	this.push(this.pc);
+	this.pc = 0x28;
+	cycles = 11;
+	break;
+
+      case 0xF0: // RET P
+	if (this.f & Cpu.SIGN) {
+	  cycles = 5;
+	} else {
+	  this.pc = this.pop();
+	  cycles = 11;
+	}
+	break;
+
+      case 0xF1: // POP AF
+	this.AF(this.pop());
+	cycles = 10;
+	break;
+
+      case 0xF2: // JP   P,nn
+	if (this.f & Cpu.SIGN) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	} else {
+	  this.pc = this.nextWord();
+	}
+	cycles = 10;
+	break;
+
+      case 0xF3: // DI
+	this.intenable = false;
+	cycles = 4;
+	break;
+
+      case 0xF4: //  CALL P,nn
+	if (this.f & Cpu.SIGN) {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	} else {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	}
+	break;
+
+      case 0xF5: //  PUSH AF
+	this.push(this.af());
+	cycles = 11;
+	break;
+
+      case 0xF6: // OR   n
+	this.a = this.orByte(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xF7: // RST  30H
+	this.push(this.pc);
+	this.pc = 0x30;
+	cycles = 11;
+	break;
+
+      case 0xF8: // RET M
+	if (this.f & Cpu.SIGN) {
+	  this.pc = this.pop();
+	  cycles = 11;
+	} else {
+	  cycles = 5;
+	}
+	break;
+
+      case 0xF9: // LD   SP,HL
+	this.sp = this.hl();
+	cycles = 6;
+	break;
+
+      case 0xFA: // JP   M,nn
+	if (this.f & Cpu.SIGN) {
+	  this.pc = this.nextWord();
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	}
+	cycles = 10;
+	break;
+
+      case 0xFB: // EI
+	this.intenable = true;
+	cycles = 4;
+	break;
+
+      case 0xFC: //  CALL M,nn
+	if (this.f & Cpu.SIGN) {
+	  w = this.nextWord();
+	  this.push(this.pc);
+	  this.pc = w;
+	  cycles = 17;
+	} else {
+	  this.pc = (this.pc + 2) & 0xFFFF;
+	  cycles = 11;
+	}
+	break;
+
+      case 0xFE: // CP   n
+	this.subtractByte(this.a, this.nextByte());
+	cycles = 7;
+	break;
+
+      case 0xFF: // RST  38H
+	this.push(this.pc);
+	this.pc = 0x38;
+	cycles = 11;
+	break;
+
+      default: // illegal
+	if (i === undefined) {
+	  alert("halted at pc=0x" + this.pc.toString(16) + ' with op=undefined');
+	} else {
+	  alert("halted at pc=0x" + this.pc.toString(16) + ' with op=0x' + i.toString(16));
+	}
+	this.halted = true;
+	cycles = 4;
+	break;
+    }
 
   return cycles;
 };
