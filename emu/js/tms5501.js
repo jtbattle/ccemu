@@ -343,25 +343,6 @@ var tms5501 = (function () {
             sstatus &= ~0x02;  // clear bit 1
             break;
 
-        // set baud rate on J-2 serial I/O
-        case 0x5:
-            retval = rate;
-            break;
-
-        // load interrupt mask register
-        case 0x8:
-            retval = intMask;
-            break;
-
-        // load interval timers:
-        case 0x9:
-        case 0xa:
-        case 0xb:
-        case 0xc:
-        case 0xd:
-            retval = period[port - 0x9];
-            break;
-
         default:
             // write-only register or no function
             retval = 0x00;
