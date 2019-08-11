@@ -83,8 +83,6 @@ var tms5501 = (function () {
 
         dscCmd = 0x00,    // discrete command
 
-        period = [0x00, 0x00, 0x00, 0x00, 0x00], // counter (re)init value
-
         count = [0x00, 0x00, 0x00, 0x00, 0x00], // current counter
 
         txCallbackTimer;  // handle to callback object
@@ -103,7 +101,6 @@ var tms5501 = (function () {
         dscCmd = 0x00;         // discrete command
         txCallbackTimer = undefined;
         for (var i = 0; i < 5; ++i) {
-            period[i] = 0x00;
             count[i] = 0x00;
         }
         setOutport(0x00);
@@ -131,7 +128,6 @@ var tms5501 = (function () {
             if (count[i] > 0x00) {
                 count[i] -= 1;
                 if (count[i] === 0x00) {
-                    count[i] = period[i];
                     intStatus |= (i === 0) ? 0x01 :
                                  (i === 1) ? 0x02 :
                                  (i === 2) ? 0x08 :
@@ -347,25 +343,6 @@ var tms5501 = (function () {
             sstatus &= ~0x02;  // clear bit 1
             break;
 
-        // set baud rate on J-2 serial I/O
-        case 0x5:
-            retval = rate;
-            break;
-
-        // load interrupt mask register
-        case 0x8:
-            retval = intMask;
-            break;
-
-        // load interval timers:
-        case 0x9:
-        case 0xa:
-        case 0xb:
-        case 0xc:
-        case 0xd:
-            retval = period[port - 0x9];
-            break;
-
         default:
             // write-only register or no function
             retval = 0x00;
@@ -520,7 +497,6 @@ var tms5501 = (function () {
         case 0xb:
         case 0xc:
         case 0xd:
-            period[port - 0x9] = value;
             count[port - 0x9] = value;
             // if value=0, set interrupt immediately
             if (value === 0) {
