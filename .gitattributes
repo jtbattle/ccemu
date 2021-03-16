@@ -1,5 +1,13 @@
-# Auto detect text files and perform LF normalization
-* text=auto
+# these should be treated as text files
+.gitattributes  text
+.gitignore      text
+*.bat           text
+*.css           text
+*.ccvf          text
+*.js            text
+*.txt           text
+jshintrc        text
+LICENSE         text
 
 # These files need to preserve compucolor (mac) line endings
 *.ccc binary
