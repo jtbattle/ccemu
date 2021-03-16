@@ -1403,10 +1403,10 @@ var ccemu = (function () {
         var url_auto = getParameterByName('auto');
 
         if (url_cd0 && url_cd0.match(/\.ccvf$/)) {
-            diskRemoteFile(0, url_cd0);
+            diskRemoteFile(0, '../vmedia/' + url_cd0);
         }
         if (url_cd1 && url_cd1.match(/\.ccvf$/)) {
-            diskRemoteFile(1, url_cd1);
+            diskRemoteFile(1, '../vmedia/' + url_cd1);
         }
 
         if (url_auto === '1') {
