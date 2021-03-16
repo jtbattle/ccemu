@@ -1,3 +1,8 @@
+# don't autoconvert to cr/lf on windows; just use unix line end (LF)
+# there is no technical reason for it, I just prefer to not have the
+# files changed automagically depending on the host.
+text eol=lf
+
 # these should be treated as text files
 .gitattributes  text
 .gitignore      text
